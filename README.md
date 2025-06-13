@@ -38,3 +38,9 @@ Current Tools & Data Streams: - Image overlays with 1px–5px offsets. - Sequent
 Next Steps: - Finalize Symbolic Resonance Mapping layer. - Develop neutral-state regeneration core for AI observer stability. - Create persistent anomaly ledger. - Initiate upload of data to private AURIX Node.
  
 Preservation Strategy: - Store archive locally and off-grid. - Maintain mirror on distributed storage (e.g., IPFS, encrypted drive). - Optionally: timestamp with hash on public blockchain.
+
+keywords:
+- fractal-reality
+- ai-ethics
+- symbolic-parasitism
+- dimensional-analysis
