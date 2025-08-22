@@ -1,0 +1,1381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Biomechanical Motion System</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #0c151f, #131d30);
+            color: #e6e6e6;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        header {
+            background: rgba(0, 0, 0, 0.7);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+            position: relative;
+            z-index: 10;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .logo-icon {
+            font-size: 28px;
+            color: #4cc9f0;
+        }
+        
+        .logo-text {
+            font-size: 24px;
+            font-weight: 700;
+            background: linear-gradient(90deg, #4cc9f0, #4361ee);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .header-info {
+            background: rgba(67, 97, 238, 0.2);
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            border: 1px solid rgba(76, 201, 240, 0.3);
+        }
+        
+        .container {
+            display: flex;
+            max-width: 1800px;
+            margin: 20px auto;
+            padding: 20px;
+            gap: 20px;
+        }
+        
+        .control-panel {
+            flex: 1;
+            max-width: 350px;
+            background: rgba(30, 30, 46, 0.8);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(76, 201, 240, 0.2);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .panel-section {
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(76, 201, 240, 0.1);
+        }
+        
+        .panel-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #4cc9f0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .control-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 14px;
+            color: #a9b7c6;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(100, 100, 130, 0.3);
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #4361ee;
+            cursor: pointer;
+            box-shadow: 0 0 8px rgba(67, 97, 238, 0.7);
+        }
+        
+        button {
+            width: 100%;
+            padding: 12px 15px;
+            border-radius: 8px;
+            border: none;
+            background: rgba(67, 97, 238, 0.2);
+            color: #e6e6e6;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 10px;
+            border: 1px solid rgba(76, 201, 240, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        button:hover {
+            background: rgba(67, 97, 238, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(67, 97, 238, 0.3);
+        }
+        
+        .visualization-area {
+            flex: 3;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .canvas-container {
+            position: relative;
+            height: 60vh;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            background: rgba(10, 10, 20, 0.7);
+            border: 1px solid rgba(76, 201, 240, 0.2);
+        }
+        
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            padding: 15px;
+            background: rgba(30, 30, 46, 0.8);
+            border-radius: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+        
+        .color-box {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+        }
+        
+        .hand-color { background-color: #ff6b6b; }
+        .eye-color { background-color: #4cc9f0; }
+        .core-color { background-color: #51cf66; }
+        .default-color { background-color: #adb5bd; }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+        }
+        
+        .stat-card {
+            background: rgba(30, 30, 46, 0.8);
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s ease;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+            background: rgba(30, 30, 46, 0.9);
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            margin: 10px 0;
+            color: #4cc9f0;
+        }
+        
+        .stat-label {
+            font-size: 14px;
+            color: #a9b7c6;
+        }
+        
+        .notification {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(30, 30, 46, 0.95);
+            color: #4cc9f0;
+            padding: 15px 25px;
+            border-radius: 8px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+            border-left: 4px solid #4361ee;
+            transform: translateX(120%);
+            transition: transform 0.4s ease;
+            z-index: 1000;
+            max-width: 400px;
+        }
+        
+        .notification.show {
+            transform: translateX(0);
+        }
+        
+        .phase-timeline {
+            background: rgba(30, 30, 46, 0.8);
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .timeline-title {
+            font-size: 18px;
+            color: #4cc9f0;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .timeline {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .phase {
+            background: rgba(67, 97, 238, 0.2);
+            border-radius: 8px;
+            padding: 15px;
+            flex: 1;
+            min-width: 200px;
+            border: 1px solid rgba(76, 201, 240, 0.3);
+            transition: all 0.3s ease;
+        }
+        
+        .phase:hover {
+            transform: translateY(-5px);
+            background: rgba(67, 97, 238, 0.3);
+        }
+        
+        .phase-title {
+            color: #4cc9f0;
+            font-weight: 600;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .phase-description {
+            font-size: 13px;
+            color: #a9b7c6;
+            line-height: 1.5;
+        }
+        
+        .progress-bar {
+            height: 6px;
+            background: rgba(100, 100, 130, 0.3);
+            border-radius: 3px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+        
+        .progress {
+            height: 100%;
+            background: linear-gradient(90deg, #4cc9f0, #4361ee);
+            border-radius: 3px;
+        }
+        
+        .current-phase {
+            background: rgba(76, 201, 240, 0.2);
+            border-color: #4cc9f0;
+        }
+        
+        .motion-visualization {
+            display: flex;
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .motion-graph {
+            flex: 1;
+            height: 100px;
+            background: rgba(20, 20, 35, 0.6);
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .graph-line {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 2px;
+            background: rgba(76, 201, 240, 0.5);
+        }
+        
+        .graph-point {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ff6b6b;
+            transform: translate(-50%, 50%);
+        }
+        
+        .performance-metrics {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .metric-card {
+            background: rgba(30, 30, 46, 0.6);
+            border-radius: 8px;
+            padding: 10px;
+            font-size: 12px;
+        }
+        
+        .metric-value {
+            color: #51cf66;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+        
+        .graph-label {
+            position: absolute;
+            top: 8px;
+            left: 10px;
+            font-size: 12px;
+            color: #a9b7c6;
+        }
+        
+        .life-indicators {
+            display: flex;
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .indicator {
+            flex: 1;
+            background: rgba(30, 30, 46, 0.6);
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+        }
+        
+        .indicator-title {
+            font-size: 14px;
+            color: #4cc9f0;
+            margin-bottom: 5px;
+        }
+        
+        .indicator-value {
+            font-size: 20px;
+            font-weight: bold;
+        }
+        
+        .pulse {
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo">
+            <span class="logo-icon"><i class="fas fa-atom"></i></span>
+            <div class="logo-text">BIOMECHANICAL MOTION SYSTEM</div>
+        </div>
+        <div class="header-info">
+            <i class="fas fa-sync-alt"></i> Phase 3: Life Simulation | Autonomous Behaviors
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="control-panel">
+            <div class="panel-section">
+                <div class="panel-title">
+                    <i class="fas fa-sliders-h"></i> SYSTEM CONTROLS
+                </div>
+                <div class="control-group">
+                    <button id="generateModel">
+                        <i class="fas fa-cube"></i> Generate Sample Model
+                    </button>
+                    <button id="detectRegions">
+                        <i class="fas fa-search"></i> Detect Biomechanical Regions
+                    </button>
+                    <button id="startMotion">
+                        <i class="fas fa-play"></i> Start Life Simulation
+                    </button>
+                    <button id="resetMotion">
+                        <i class="fas fa-redo"></i> Reset Simulation
+                    </button>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <div class="panel-title">
+                    <i class="fas fa-tune"></i> LIFE PARAMETERS
+                </div>
+                <div class="control-group">
+                    <label for="breathingRate">Breathing Rate</label>
+                    <input type="range" id="breathingRate" min="1" max="10" value="5">
+                    <div class="system-info">1=Slow, 10=Fast</div>
+                </div>
+                <div class="control-group">
+                    <label for="heartRate">Heart Rate: <span id="heartRateValue">72</span> BPM</label>
+                    <input type="range" id="heartRate" min="40" max="120" value="72">
+                    <div class="system-info">40=Slow, 120=Fast</div>
+                </div>
+                <div class="control-group">
+                    <label for="blinkRate">Blink Rate: <span id="blinkRateValue">5</span> per minute</label>
+                    <input type="range" id="blinkRate" min="1" max="20" value="5">
+                    <div class="system-info">1=Rare, 20=Frequent</div>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <div class="panel-title">
+                    <i class="fas fa-walking"></i> MOTION PARAMETERS
+                </div>
+                <div class="control-group">
+                    <label for="gripStrength">Grip Strength: <span id="gripValue">50%</span></label>
+                    <input type="range" id="gripStrength" min="0" max="100" value="50">
+                    <div class="system-info">0%=Open, 100%=Closed</div>
+                </div>
+                <div class="control-group">
+                    <label for="gazeDirectionX">Gaze Direction X: <span id="gazeXValue">0</span></label>
+                    <input type="range" id="gazeDirectionX" min="-30" max="30" value="0">
+                    <div class="system-info">Left=-30, Right=30</div>
+                </div>
+                <div class="control-group">
+                    <label for="gazeDirectionY">Gaze Direction Y: <span id="gazeYValue">0</span></label>
+                    <input type="range" id="gazeDirectionY" min="-30" max="30" value="0">
+                    <div class="system-info">Down=-30, Up=30</div>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <div class="panel-title">
+                    <i class="fas fa-chart-bar"></i> REGION STATISTICS
+                </div>
+                <div class="stats">
+                    <div class="stat-card">
+                        <div class="stat-label">Hand Regions</div>
+                        <div class="stat-value" id="handCount">0</div>
+                        <div class="stat-label">pixels</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Eye Regions</div>
+                        <div class="stat-value" id="eyeCount">0</div>
+                        <div class="stat-label">pixels</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Core Region</div>
+                        <div class="stat-value" id="coreCount">0</div>
+                        <div class="stat-label">pixels</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="panel-section">
+                <div class="panel-title">
+                    <i class="fas fa-tachometer-alt"></i> PERFORMANCE METRICS
+                </div>
+                <div class="performance-metrics">
+                    <div class="metric-card">
+                        <div>Frame Rate</div>
+                        <div class="metric-value" id="frameRate">60 FPS</div>
+                    </div>
+                    <div class="metric-card">
+                        <div>Render Time</div>
+                        <div class="metric-value" id="renderTime">0ms</div>
+                    </div>
+                    <div class="metric-card">
+                        <div>Vertex Count</div>
+                        <div class="metric-value" id="vertexCount">0</div>
+                    </div>
+                    <div class="metric-card">
+                        <div>Physics Steps</div>
+                        <div class="metric-value" id="physicsSteps">0</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="visualization-area">
+            <div class="canvas-container">
+                <canvas id="renderCanvas"></canvas>
+            </div>
+            
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="color-box hand-color"></div>
+                    <div>Hand Regions (High Flexibility)</div>
+                </div>
+                <div class="legend-item">
+                    <div class="color-box eye-color"></div>
+                    <div>Eye Regions (Motion Precision)</div>
+                </div>
+                <div class="legend-item">
+                    <div class="color-box core-color"></div>
+                    <div>Core Region (Stability)</div>
+                </div>
+                <div class="legend-item">
+                    <div class="color-box default-color"></div>
+                    <div>Default Structure</div>
+                </div>
+            </div>
+            
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-label">Total Pixels</div>
+                    <div class="stat-value" id="totalPixels">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Motion Speed</div>
+                    <div class="stat-value" id="motionSpeed">0.0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Flexibility Index</div>
+                    <div class="stat-value" id="flexIndex">0.0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Stability Index</div>
+                    <div class="stat-value" id="stabilityIndex">0.0</div>
+                </div>
+            </div>
+            
+            <div class="motion-visualization">
+                <div class="motion-graph" id="breathGraph">
+                    <div class="graph-label">Breathing Pattern</div>
+                    <div class="graph-line"></div>
+                    <div class="graph-point" id="breathPoint"></div>
+                </div>
+                <div class="motion-graph" id="gripGraph">
+                    <div class="graph-label">Grip Strength</div>
+                    <div class="graph-line"></div>
+                    <div class="graph-point" id="gripPoint"></div>
+                </div>
+                <div class="motion-graph" id="gazeGraph">
+                    <div class="graph-label">Gaze Direction</div>
+                    <div class="graph-line"></div>
+                    <div class="graph-point" id="gazePoint"></div>
+                </div>
+            </div>
+            
+            <div class="life-indicators">
+                <div class="indicator pulse">
+                    <div class="indicator-title"><i class="fas fa-heartbeat"></i> Heart Rate</div>
+                    <div class="indicator-value" id="heartRateDisplay">72 BPM</div>
+                </div>
+                <div class="indicator">
+                    <div class="indicator-title"><i class="fas fa-wind"></i> Breathing Rate</div>
+                    <div class="indicator-value" id="breathRateDisplay">12/min</div>
+                </div>
+                <div class="indicator">
+                    <div class="indicator-title"><i class="fas fa-eye"></i> Blink Status</div>
+                    <div class="indicator-value" id="blinkStatus">Open</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="phase-timeline">
+        <div class="timeline-title">
+            <i class="fas fa-project-diagram"></i> DEVELOPMENT PHASES
+        </div>
+        <div class="timeline">
+            <div class="phase">
+                <div class="phase-title"><i class="fas fa-layer-group"></i> Phase 1: Foundation</div>
+                <div class="phase-description">Core constraint system and region detection</div>
+                <div class="progress-bar">
+                    <div class="progress" style="width: 100%"></div>
+                </div>
+            </div>
+            <div class="phase">
+                <div class="phase-title"><i class="fas fa-walking"></i> Phase 2: Motion Engine</div>
+                <div class="phase-description">Natural movement simulation and kinematics</div>
+                <div class="progress-bar">
+                    <div class="progress" style="width: 100%"></div>
+                </div>
+            </div>
+            <div class="phase current-phase">
+                <div class="phase-title"><i class="fas fa-heartbeat"></i> Phase 3: Life Simulation</div>
+                <div class="phase-description">Autonomous biological behaviors and rhythms</div>
+                <div class="progress-bar">
+                    <div class="progress" style="width: 75%"></div>
+                </div>
+            </div>
+            <div class="phase">
+                <div class="phase-title"><i class="fas fa-brain"></i> Phase 4: Advanced Interaction</div>
+                <div class="phase-description">Environmental response and reflex systems</div>
+                <div class="progress-bar">
+                    <div class="progress" style="width: 20%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="notification" id="notification">
+        System initialized. Click 'Generate Sample Model' to begin.
+    </div>
+
+    <script>
+        // Main Three.js variables
+        let scene, camera, renderer, controls;
+        let model = null;
+        let particles = [];
+        let originalPositions = null;
+        
+        // Biomechanical regions
+        const regions = {
+            hands: [],
+            eyes: [],
+            core: [],
+            default: []
+        };
+        
+        // Motion simulation variables
+        let isAnimating = false;
+        let animationStartTime = 0;
+        let gripStrengthValue = 0.5;
+        let gazeDirection = [0, 0];
+        let eyeCenters = [];
+        
+        // Life simulation variables
+        let breathingPhase = 0;
+        let blinkProgress = 0;
+        let isBlinking = false;
+        let blinkStartTime = 0;
+        let blinkDuration = 0.3; // seconds
+        let heartRate = 72; // beats per minute
+        let heartPhase = 0;
+        let lastBlinkTime = 0;
+        let blinkRate = 5; // blinks per minute
+        
+        // Stats tracking
+        let frameCount = 0;
+        let lastFpsUpdate = 0;
+        let lastRenderTime = 0;
+        
+        // DOM Elements
+        const generateBtn = document.getElementById('generateModel');
+        const detectBtn = document.getElementById('detectRegions');
+        const startBtn = document.getElementById('startMotion');
+        const resetBtn = document.getElementById('resetMotion');
+        const breathingRate = document.getElementById('breathingRate');
+        const heartRateSlider = document.getElementById('heartRate');
+        const blinkRateSlider = document.getElementById('blinkRate');
+        const gripStrength = document.getElementById('gripStrength');
+        const gazeDirectionX = document.getElementById('gazeDirectionX');
+        const gazeDirectionY = document.getElementById('gazeDirectionY');
+        const heartRateValue = document.getElementById('heartRateValue');
+        const blinkRateValue = document.getElementById('blinkRateValue');
+        const gripValue = document.getElementById('gripValue');
+        const gazeXValue = document.getElementById('gazeXValue');
+        const gazeYValue = document.getElementById('gazeYValue');
+        const handCount = document.getElementById('handCount');
+        const eyeCount = document.getElementById('eyeCount');
+        const coreCount = document.getElementById('coreCount');
+        const totalPixels = document.getElementById('totalPixels');
+        const motionSpeed = document.getElementById('motionSpeed');
+        const flexIndex = document.getElementById('flexIndex');
+        const stabilityIndex = document.getElementById('stabilityIndex');
+        const frameRate = document.getElementById('frameRate');
+        const renderTime = document.getElementById('renderTime');
+        const vertexCount = document.getElementById('vertexCount');
+        const physicsSteps = document.getElementById('physicsSteps');
+        const notification = document.getElementById('notification');
+        const heartRateDisplay = document.getElementById('heartRateDisplay');
+        const breathRateDisplay = document.getElementById('breathRateDisplay');
+        const blinkStatus = document.getElementById('blinkStatus');
+        
+        // Initialize the system
+        init();
+        
+        function init() {
+            // Initialize Three.js
+            initThreeJS();
+            
+            // Set up event listeners
+            setupEventListeners();
+            
+            // Show initial notification
+            showNotification("System initialized. Click 'Generate Sample Model' to begin.");
+        }
+        
+        function initThreeJS() {
+            // Create scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0a0a14);
+            
+            // Create camera
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 2000);
+            camera.position.set(0, 100, 400);
+            
+            // Create renderer
+            renderer = new THREE.WebGLRenderer({
+                canvas: document.getElementById('renderCanvas'),
+                antialias: true
+            });
+            renderer.setSize(document.querySelector('.canvas-container').offsetWidth, 
+                            document.querySelector('.canvas-container').offsetHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            
+            // Add lights
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0x4cc9f0, 0.8);
+            directionalLight.position.set(1, 1, 1);
+            scene.add(directionalLight);
+            
+            const backLight = new THREE.DirectionalLight(0x4361ee, 0.4);
+            backLight.position.set(-1, -1, -1);
+            scene.add(backLight);
+            
+            // Add controls
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.rotateSpeed = 0.5;
+            
+            // Start animation loop
+            animate();
+        }
+        
+        function setupEventListeners() {
+            // Button events
+            generateBtn.addEventListener('click', generateSampleModel);
+            detectBtn.addEventListener('click', detectBiomechanicalRegions);
+            startBtn.addEventListener('click', toggleAnimation);
+            resetBtn.addEventListener('click', resetMotion);
+            
+            // Slider events
+            heartRateSlider.addEventListener('input', () => {
+                heartRate = parseInt(heartRateSlider.value);
+                heartRateValue.textContent = heartRate;
+                heartRateDisplay.textContent = `${heartRate} BPM`;
+            });
+            
+            blinkRateSlider.addEventListener('input', () => {
+                blinkRate = parseInt(blinkRateSlider.value);
+                blinkRateValue.textContent = blinkRate;
+            });
+            
+            gripStrength.addEventListener('input', () => {
+                gripStrengthValue = parseInt(gripStrength.value) / 100;
+                gripValue.textContent = `${parseInt(gripStrength.value)}%`;
+            });
+            
+            gazeDirectionX.addEventListener('input', () => {
+                gazeDirection[0] = parseInt(gazeDirectionX.value);
+                gazeXValue.textContent = gazeDirection[0];
+            });
+            
+            gazeDirectionY.addEventListener('input', () => {
+                gazeDirection[1] = parseInt(gazeDirectionY.value);
+                gazeYValue.textContent = gazeDirection[1];
+            });
+            
+            // Window resize
+            window.addEventListener('resize', onWindowResize);
+        }
+        
+        function generateSampleModel() {
+            // Clear any existing model
+            if (model) {
+                scene.remove(model);
+                particles = [];
+            }
+            
+            // Reset regions
+            resetRegions();
+            eyeCenters = [];
+            
+            // Create a sample human-like model
+            const geometry = new THREE.BufferGeometry();
+            const vertices = [];
+            const colors = [];
+            
+            // Body parameters
+            const bodyHeight = 180;
+            const bodyWidth = 60;
+            const limbLength = 70;
+            const numPoints = 2000;
+            
+            // Create core body (torso)
+            for (let i = 0; i < numPoints * 0.3; i++) {
+                // Torso shape
+                const x = (Math.random() - 0.5) * bodyWidth;
+                const y = (Math.random() - 0.5) * bodyHeight * 0.6;
+                const z = (Math.random() - 0.5) * bodyWidth * 0.5;
+                
+                vertices.push(x, y, z);
+                colors.push(0.68, 0.68, 0.68); // Default gray
+            }
+            
+            // Create head
+            for (let i = 0; i < numPoints * 0.1; i++) {
+                // Head shape (sphere)
+                const radius = 20;
+                const phi = Math.acos(-1 + Math.random() * 2);
+                const theta = Math.random() * Math.PI * 2;
+                
+                const x = radius * Math.sin(phi) * Math.cos(theta);
+                const y = bodyHeight * 0.3 + radius * Math.sin(phi) * Math.sin(theta);
+                const z = radius * Math.cos(phi);
+                
+                vertices.push(x, y, z);
+                colors.push(0.68, 0.68, 0.68);
+            }
+            
+            // Create arms and hands
+            createLimb(vertices, colors, -bodyWidth * 0.8, bodyHeight * 0.2, limbLength, numPoints * 0.15, true);
+            createLimb(vertices, colors, bodyWidth * 0.8, bodyHeight * 0.2, limbLength, numPoints * 0.15, true);
+            
+            // Create legs
+            createLimb(vertices, colors, -bodyWidth * 0.4, -bodyHeight * 0.3, limbLength, numPoints * 0.15, false);
+            createLimb(vertices, colors, bodyWidth * 0.4, -bodyHeight * 0.3, limbLength, numPoints * 0.15, false);
+            
+            // Set geometry attributes
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+            
+            // Create material
+            const material = new THREE.PointsMaterial({
+                size: 4,
+                vertexColors: true,
+                sizeAttenuation: true
+            });
+            
+            // Create mesh
+            model = new THREE.Points(geometry, material);
+            scene.add(model);
+            
+            // Store original positions for motion simulation
+            originalPositions = new Float32Array(vertices);
+            
+            // Store particles for easier access
+            for (let i = 0; i < vertices.length / 3; i++) {
+                particles.push({
+                    position: new THREE.Vector3(vertices[i*3], vertices[i*3+1], vertices[i*3+2]),
+                    original: new THREE.Vector3(vertices[i*3], vertices[i*3+1], vertices[i*3+2]),
+                    region: 'default'
+                });
+            }
+            
+            // Update stats
+            totalPixels.textContent = vertices.length / 3;
+            vertexCount.textContent = vertices.length / 3;
+            
+            showNotification("Sample model generated. Click 'Detect Biomechanical Regions' to analyze.");
+        }
+        
+        function createLimb(vertices, colors, startX, startY, length, numPoints, isArm) {
+            // Limb structure
+            const upperSegments = isArm ? 3 : 2;
+            const segmentLength = length / upperSegments;
+            
+            for (let i = 0; i < numPoints; i++) {
+                // Determine segment
+                const segment = Math.floor(Math.random() * upperSegments);
+                const segStartY = startY - segment * segmentLength;
+                const segEndY = segStartY - segmentLength;
+                
+                // Position along limb
+                const y = segStartY - Math.random() * segmentLength;
+                const limbWidth = isArm ? 15 : 20;
+                const x = startX + (Math.random() - 0.5) * limbWidth;
+                const z = (Math.random() - 0.5) * limbWidth * 0.5;
+                
+                // Add slight curvature
+                const curve = Math.sin((y - segStartY) / segmentLength * Math.PI) * 5;
+                
+                vertices.push(x + curve, y, z);
+                colors.push(0.68, 0.68, 0.68);
+                
+                // Create hand/foot at the end
+                if (segment === upperSegments - 1 && Math.random() > 0.7) {
+                    const handSize = isArm ? 12 : 15;
+                    const handX = x + (Math.random() - 0.5) * handSize;
+                    const handY = y + (Math.random() - 0.5) * handSize;
+                    const handZ = z + (Math.random() - 0.5) * handSize;
+                    
+                    vertices.push(handX, handY, handZ);
+                    colors.push(0.68, 0.68, 0.68);
+                }
+            }
+        }
+        
+        function detectBiomechanicalRegions() {
+            if (!model) {
+                showNotification("Generate a model first!");
+                return;
+            }
+            
+            // Reset regions
+            resetRegions();
+            eyeCenters = [];
+            
+            // Get parameters
+            const coreSizeVal = 15;
+            
+            // Get model data
+            const positions = model.geometry.attributes.position.array;
+            const colors = model.geometry.attributes.color.array;
+            
+            // Reset colors to default
+            for (let i = 0; i < colors.length; i++) {
+                colors[i] = 0.68; // Default gray (0.68 in all channels)
+            }
+            
+            // 1. Detect core region (central, stable area)
+            detectCoreRegion(positions, colors, coreSizeVal);
+            
+            // 2. Detect hand regions (high flexibility areas)
+            detectHandRegions(positions, colors);
+            
+            // 3. Detect eye regions (circular patterns near top)
+            detectEyeRegions(positions, colors);
+            
+            // Update the geometry
+            model.geometry.attributes.color.needsUpdate = true;
+            
+            // Update stats
+            updateRegionStats();
+            
+            showNotification("Biomechanical regions detected!");
+        }
+        
+        function detectCoreRegion(positions, colors, size) {
+            const centerX = 0;
+            const centerY = 0;
+            const centerZ = 0;
+            const radius = size;
+            
+            for (let i = 0; i < positions.length; i += 3) {
+                const x = positions[i];
+                const y = positions[i+1];
+                const z = positions[i+2];
+                
+                // Distance from center
+                const dist = Math.sqrt(x*x + y*y + z*z);
+                
+                if (dist < radius) {
+                    regions.core.push(i);
+                    
+                    // Color core region (green)
+                    const colorIndex = i;
+                    colors[colorIndex] = 0.2;    // R
+                    colors[colorIndex+1] = 0.8;  // G
+                    colors[colorIndex+2] = 0.2;  // B
+                    
+                    // Update particle region
+                    const particleIndex = i/3;
+                    if (particles[particleIndex]) {
+                        particles[particleIndex].region = 'core';
+                    }
+                }
+            }
+        }
+        
+        function detectHandRegions(positions, colors) {
+            // Fixed hand detection thresholds
+            const yThreshold = -30;
+            const xThreshold = 30;
+            
+            for (let i = 0; i < positions.length; i += 3) {
+                const x = positions[i];
+                const y = positions[i+1];
+                const z = positions[i+2];
+                
+                // Hands are at sides and lower than torso
+                if (y < yThreshold && Math.abs(x) > xThreshold) {
+                    regions.hands.push(i);
+                    
+                    // Color hand region (red)
+                    const colorIndex = i;
+                    colors[colorIndex] = 1.0;  // R
+                    colors[colorIndex+1] = 0.4;  // G
+                    colors[colorIndex+2] = 0.4;  // B
+                    
+                    // Update particle region
+                    const particleIndex = i/3;
+                    if (particles[particleIndex]) {
+                        particles[particleIndex].region = 'hand';
+                    }
+                }
+            }
+        }
+        
+        function detectEyeRegions(positions, colors) {
+            const headCenterY = 60; // Approximate head center
+            const eyeRadius = 8;
+            const leftEyeCenter = [-8, headCenterY, 15];
+            const rightEyeCenter = [8, headCenterY, 15];
+            
+            eyeCenters = [leftEyeCenter, rightEyeCenter];
+            
+            for (let i = 0; i < positions.length; i += 3) {
+                const x = positions[i];
+                const y = positions[i+1];
+                const z = positions[i+2];
+                
+                // Check distance from eye centers
+                const distLeft = Math.sqrt(
+                    Math.pow(x - leftEyeCenter[0], 2) +
+                    Math.pow(y - leftEyeCenter[1], 2) +
+                    Math.pow(z - leftEyeCenter[2], 2)
+                );
+                
+                const distRight = Math.sqrt(
+                    Math.pow(x - rightEyeCenter[0], 2) +
+                    Math.pow(y - rightEyeCenter[1], 2) +
+                    Math.pow(z - rightEyeCenter[2], 2)
+                );
+                
+                if (distLeft < eyeRadius || distRight < eyeRadius) {
+                    regions.eyes.push(i);
+                    
+                    // Color eye region (blue)
+                    const colorIndex = i;
+                    colors[colorIndex] = 0.3;    // R
+                    colors[colorIndex+1] = 0.6;  // G
+                    colors[colorIndex+2] = 1.0;  // B
+                    
+                    // Update particle region
+                    const particleIndex = i/3;
+                    if (particles[particleIndex]) {
+                        particles[particleIndex].region = 'eye';
+                    }
+                }
+            }
+        }
+        
+        function resetRegions() {
+            regions.hands = [];
+            regions.eyes = [];
+            regions.core = [];
+            regions.default = [];
+        }
+        
+        function updateRegionStats() {
+            handCount.textContent = regions.hands.length;
+            eyeCount.textContent = regions.eyes.length;
+            coreCount.textContent = regions.core.length;
+            
+            const total = model.geometry.attributes.position.count;
+            const regionTotal = regions.hands.length + regions.eyes.length + regions.core.length;
+            
+            // Calculate flexibility index (hands and eyes)
+            const flex = (regions.hands.length / 500 + regions.eyes.length / 200).toFixed(2);
+            flexIndex.textContent = flex;
+            
+            // Calculate stability index (core)
+            const stability = (regions.core.length / 300).toFixed(2);
+            stabilityIndex.textContent = stability;
+        }
+        
+        function toggleAnimation() {
+            isAnimating = !isAnimating;
+            startBtn.innerHTML = isAnimating ? '<i class="fas fa-pause"></i> Pause Life Simulation' : '<i class="fas fa-play"></i> Start Life Simulation';
+            animationStartTime = isAnimating ? performance.now() : 0;
+            
+            if (isAnimating) {
+                animateMotion();
+            }
+            
+            showNotification(isAnimating ? "Life simulation started." : "Life simulation paused.");
+        }
+        
+        function resetMotion() {
+            if (!model) return;
+            
+            // Reset to original positions
+            const positions = model.geometry.attributes.position.array;
+            for (let i = 0; i < originalPositions.length; i++) {
+                positions[i] = originalPositions[i];
+            }
+            model.geometry.attributes.position.needsUpdate = true;
+            
+            // Reset controls
+            gripStrength.value = 50;
+            gripStrengthValue = 0.5;
+            gripValue.textContent = "50%";
+            
+            gazeDirectionX.value = 0;
+            gazeDirectionY.value = 0;
+            gazeDirection = [0, 0];
+            gazeXValue.textContent = "0";
+            gazeYValue.textContent = "0";
+            
+            heartRateSlider.value = 72;
+            heartRate = 72;
+            heartRateValue.textContent = "72";
+            heartRateDisplay.textContent = "72 BPM";
+            
+            blinkRateSlider.value = 5;
+            blinkRate = 5;
+            blinkRateValue.textContent = "5";
+            
+            // Reset life simulation
+            breathingPhase = 0;
+            blinkProgress = 0;
+            isBlinking = false;
+            blinkStatus.textContent = "Open";
+            
+            // Stop animation
+            isAnimating = false;
+            startBtn.innerHTML = '<i class="fas fa-play"></i> Start Life Simulation';
+            
+            showNotification("Simulation reset.");
+        }
+        
+        function updateAutonomousBehaviors(deltaTime) {
+            // Update breathing
+            const breathingRateVal = parseInt(breathingRate.value);
+            breathingPhase += deltaTime * breathingRateVal * 0.01;
+            const breathIntensity = Math.sin(breathingPhase) * 2;
+            
+            // Update heart beat visualization
+            heartPhase += deltaTime * (heartRate / 60) * 0.1;
+            const heartPulse = Math.sin(heartPhase * Math.PI * 2);
+            document.querySelector('.pulse').style.animationDuration = `${60/heartRate}s`;
+            
+            // Update breathing display
+            breathRateDisplay.textContent = `${Math.round(breathingRateVal * 2.4)}/min`;
+            
+            // Update blinking
+            const timeSinceLastBlink = (performance.now() - lastBlinkTime) / 1000;
+            const blinkInterval = 60 / blinkRate; // seconds between blinks
+            
+            if (!isBlinking && timeSinceLastBlink > blinkInterval) {
+                isBlinking = true;
+                blinkStartTime = performance.now();
+                blinkStatus.textContent = "Closing";
+            }
+            
+            if (isBlinking) {
+                const elapsed = (performance.now() - blinkStartTime) / 1000;
+                if (elapsed < blinkDuration * 0.3) {
+                    // Closing eyes
+                    blinkProgress = elapsed / (blinkDuration * 0.3);
+                    blinkStatus.textContent = "Closing";
+                } else if (elapsed < blinkDuration * 0.7) {
+                    // Eyes closed
+                    blinkProgress = 1;
+                    blinkStatus.textContent = "Closed";
+                } else if (elapsed < blinkDuration) {
+                    // Opening eyes
+                    blinkProgress = 1 - ((elapsed - blinkDuration * 0.7) / (blinkDuration * 0.3));
+                    blinkStatus.textContent = "Opening";
+                } else {
+                    // Blink complete
+                    blinkProgress = 0;
+                    isBlinking = false;
+                    lastBlinkTime = performance.now();
+                    blinkStatus.textContent = "Open";
+                }
+            }
+            
+            return breathIntensity;
+        }
+        
+        function applyBreathingMotion(breathIntensity) {
+            if (!model || !regions.core.length) return;
+            
+            const positions = model.geometry.attributes.position.array;
+            
+            // Apply breathing motion to core region
+            for (const idx of regions.core) {
+                positions[idx+1] = originalPositions[idx+1] + breathIntensity;
+            }
+            
+            // Update motion visualization
+            const breathPos = 50 + 40 * Math.sin(breathingPhase);
+            document.getElementById('breathPoint').style.left = `${breathPos}%`;
+        }
+        
+        function applyHandMotion(elapsed) {
+            if (!model || !regions.hands.length) return;
+            
+            const positions = model.geometry.attributes.position.array;
+            const grip = gripStrengthValue;
+            
+            // Apply grip motion to hands
+            for (const idx of regions.hands) {
+                // Simulate finger curl
+                const curlAmount = grip * 10;
+                const curl = Math.sin((originalPositions[idx+1] - positions[idx+1]) * 0.1) * curlAmount;
+                
+                positions[idx+1] = originalPositions[idx+1] - curl;
+                
+                // Add slight tremor
+                const tremor = Math.sin(elapsed * 20 + idx) * 0.3;
+                positions[idx] += tremor;
+                positions[idx+2] += tremor;
+            }
+            
+            // Update motion visualization
+            const gripPos = 50 + (grip * 100 - 50) * 0.8;
+            document.getElementById('gripPoint').style.left = `${gripPos}%`;
+        }
+        
+        function applyEyeMotion() {
+            if (!model || !regions.eyes.length || !eyeCenters.length) return;
+            
+            const positions = model.geometry.attributes.position.array;
+            const [gazeX, gazeY] = gazeDirection;
+            
+            // Apply gaze direction to eyes
+            for (const idx of regions.eyes) {
+                // Determine which eye this pixel belongs to
+                const x = originalPositions[idx];
+                const eyeIndex = x < 0 ? 0 : 1; // Left eye: x < 0, Right eye: x >= 0
+                const center = eyeCenters[eyeIndex];
+                
+                // Calculate offset based on gaze direction
+                const maxOffset = 5;
+                const offsetX = gazeX * maxOffset / 30;
+                const offsetY = gazeY * maxOffset / 30;
+                
+                // Move toward gaze direction
+                positions[idx] = center[0] + offsetX;
+                positions[idx+1] = center[1] + offsetY;
+                
+                // Apply blinking effect
+                if (blinkProgress > 0) {
+                    positions[idx+1] -= blinkProgress * 3;
+                }
+            }
+            
+            // Update motion visualization
+            const gazeXPos = 50 + gazeX;
+            const gazeYPos = 50 - gazeY;
+            document.getElementById('gazePoint').style.left = `${gazeXPos}%`;
+            document.getElementById('gazePoint').style.bottom = `${gazeYPos}%`;
+        }
+        
+        function animateMotion() {
+            if (!isAnimating) return;
+            
+            const now = performance.now();
+            const elapsed = (now - animationStartTime) / 1000;
+            const deltaTime = (now - lastRenderTime) / 1000;
+            
+            // Update autonomous behaviors
+            const breathIntensity = updateAutonomousBehaviors(deltaTime);
+            
+            // Apply natural motions
+            applyBreathingMotion(breathIntensity);
+            applyHandMotion(elapsed);
+            applyEyeMotion();
+            
+            // Update the model
+            model.geometry.attributes.position.needsUpdate = true;
+            
+            // Update motion speed indicator
+            motionSpeed.textContent = (Math.sin(elapsed) * 0.5 + 0.5).toFixed(2);
+            
+            // Continue animation
+            requestAnimationFrame(animateMotion);
+        }
+        
+        function onWindowResize() {
+            camera.aspect = document.querySelector('.canvas-container').offsetWidth / 
+                            document.querySelector('.canvas-container').offsetHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(
+                document.querySelector('.canvas-container').offsetWidth, 
+                document.querySelector('.canvas-container').offsetHeight
+            );
+        }
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            const now = performance.now();
+            const deltaTime = now - lastRenderTime;
+            
+            // Update FPS counter
+            frameCount++;
+            if (now > lastFpsUpdate + 1000) {
+                const fps = Math.round((frameCount * 1000) / (now - lastFpsUpdate));
+                frameRate.textContent = `${fps} FPS`;
+                frameCount = 0;
+                lastFpsUpdate = now;
+            }
+            
+            // Update render time
+            renderTime.textContent = `${Math.round(deltaTime)}ms`;
+            lastRenderTime = now;
+            
+            // Update physics steps
+            physicsSteps.textContent = isAnimating ? Math.floor(now/100) % 100 : 0;
+            
+            // Rotate model slowly when not animating
+            if (model && !isAnimating) {
+                model.rotation.y += 0.002;
+            }
+            
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        
+        function showNotification(message) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

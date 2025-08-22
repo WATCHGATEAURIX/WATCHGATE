@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Glyph Cloud Studio — Single‑Page (Three.js)</title>
+  <style>
+    :root {
+      --bg: #0b0d10; --panel:#12161b; --ink:#e6eef7; --muted:#8ea3b3; --accent:#74c0fc; --good:#94d82d; --warn:#fcc419; --bad:#ff6b6b;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin:0; height:100%; background:var(--bg); color:var(--ink); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji"; }
+    .layout { display:grid; grid-template-columns: 320px 1fr; grid-template-rows: 56px 1fr; gap:10px; height:100%; }
+    header { grid-column:1 / -1; display:flex; align-items:center; gap:10px; padding:10px 14px; background:var(--panel); border-bottom:1px solid #1a222b; }
+    header h1 { font-size:16px; margin:0; font-weight:600; letter-spacing:.3px; }
+    header .sub { color:var(--muted); font-size:12px; }
+    aside { background:var(--panel); padding:12px; overflow:auto; border-right:1px solid #1a222b; }
+    main { position:relative; }
+    #three { position:absolute; inset:0; }
+    fieldset { border:1px solid #1a222b; border-radius:12px; padding:10px; margin:0 0 12px 0; }
+    legend { color:var(--muted); font-size:12px; padding:0 6px; }
+    label { display:block; font-size:12px; margin:6px 0 2px; color:var(--muted); }
+    input[type="range"] { width:100%; }
+    .row { display:flex; gap:8px; align-items:center; }
+    .row > * { flex:1; }
+    .btn { cursor:pointer; background:#0f1318; color:var(--ink); border:1px solid #1a222b; padding:8px 10px; border-radius:10px; font-size:12px; }
+    .btn:hover { border-color:#283243; }
+    .btn.primary { background:linear-gradient(180deg, #1a2533, #121a24); border-color:#2a3b52; color:#d9ecff; }
+    .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; border:1px solid #253141; color:var(--muted); }
+    table { width:100%; border-collapse:collapse; font-size:12px; }
+    th, td { border-bottom:1px solid #1a222b; padding:6px 4px; text-align:left; }
+    th { position:sticky; top:0; background:var(--panel); cursor:pointer; }
+    tr:hover { background:#0e1318; }
+    .flex { display:flex; gap:8px; align-items:center; }
+    .muted { color:var(--muted); }
+    .small { font-size:11px; }
+    .badge { padding:2px 6px; border-radius:6px; font-size:11px; }
+    .good { background:#193212; color:#b3f27c; }
+    .warn { background:#3b2c10; color:#ffd272; }
+    .bad  { background:#3b1515; color:#ff9b9b; }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <header>
+      <h1>Glyph Cloud Studio</h1>
+      <div class="sub">Upload → Voxelize → Slice → Rotate → Analyze</div>
+      <div style="margin-left:auto" class="flex">
+        <span class="pill">Single‑page · Three.js</span>
+      </div>
+    </header>
+
+    <aside>
+      <fieldset>
+        <legend>1) Input</legend>
+        <label>Upload image (PNG/JPG)</label>
+        <input id="file" type="file" accept="image/*" />
+        <div class="row">
+          <div>
+            <label class="small">Downsample (skip pixels)</label>
+            <input id="skip" type="range" min="1" max="8" step="1" value="2" />
+            <div class="small muted">Every <span id="skipOut">2</span> px</div>
+          </div>
+          <div>
+            <label class="small">Point size</label>
+            <input id="ptSize" type="range" min="1" max="6" step="1" value="2" />
+            <div class="small muted"><span id="ptSizeOut">2</span> px</div>
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label class="small">Slices (Z bins)</label>
+            <input id="bins" type="range" min="3" max="32" step="1" value="12" />
+            <div class="small muted"><span id="binsOut">12</span> bins</div>
+          </div>
+          <div>
+            <label class="small">Depth scale (Z)</label>
+            <input id="zScale" type="range" min="50" max="600" step="10" value="250" />
+            <div class="small muted"><span id="zScaleOut">250</span></div>
+          </div>
+        </div>
+        <button id="build" class="btn primary">Build Voxel Cloud</button>
+      </fieldset>
+
+      <fieldset>
+        <legend>2) Global Controls</legend>
+        <div class="row">
+          <button id="resetView" class="btn">Reset View</button>
+          <button id="fit" class="btn">Fit to View</button>
+        </div>
+        <div class="row">
+          <label>Global spin (rad/s)</label>
+          <input id="globalSpin" type="range" min="-2" max="2" step="0.01" value="0" />
+        </div>
+        <div class="row">
+          <label>Color mode</label>
+          <select id="colorMode">
+            <option value="slice">By slice</option>
+            <option value="source">From source image</option>
+            <option value="mono">Monochrome</option>
+          </select>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>3) Slice Table</legend>
+        <div class="small muted" style="margin-bottom:6px">Click headers to sort. Use sliders to set per‑slice spin. Toggle visibility to isolate layers.</div>
+        <div style="max-height:40vh; overflow:auto; border:1px solid #1a222b; border-radius:8px;">
+          <table id="sliceTable">
+            <thead>
+              <tr>
+                <th data-key="idx">#</th>
+                <th data-key="zmin">Z min</th>
+                <th data-key="zmax">Z max</th>
+                <th data-key="count">Pixels</th>
+                <th data-key="sym">Sym</th>
+                <th>Spin</th>
+                <th>Show</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <button id="exportJSON" class="btn">Export slice data (JSON)</button>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>4) Metrics</legend>
+        <div class="small">
+          <div>Centroid: <span id="centroidOut">–</span></div>
+          <div>Avg radius: <span id="radiusOut">–</span></div>
+          <div>Radial σ: <span id="radVarOut">–</span></div>
+        </div>
+      </fieldset>
+    </aside>
+
+    <main>
+      <canvas id="three"></canvas>
+    </main>
+  </div>
+
+  <script type="module">
+import * as THREE from './js/build/three.module.js';
+import { OrbitControls } from './js/examples/jsm/controls/OrbitControls.js';
+
+    // ---------- Scene
+    const canvas = document.getElementById('three');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true });
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0b0d10);
+    const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 5000);
+    camera.position.set(0, 0, 700);
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.06;
+
+    const light = new THREE.DirectionalLight(0xffffff, 1.0);
+    light.position.set(1,1,1);
+    scene.add(light);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+
+    const root = new THREE.Group();
+    scene.add(root);
+
+    // Resize
+    function onResize(){
+      const w = canvas.clientWidth || canvas.parentElement.clientWidth;
+      const h = canvas.clientHeight || canvas.parentElement.clientHeight;
+      const rect = canvas.getBoundingClientRect();
+      renderer.setSize(rect.width, rect.height, false);
+      camera.aspect = rect.width / rect.height;
+      camera.updateProjectionMatrix();
+    }
+    new ResizeObserver(onResize).observe(document.body);
+    onResize();
+
+    // ---------- UI refs
+    const el = (id)=>document.getElementById(id);
+    const fileInput = el('file');
+    const skip = el('skip'); const skipOut = el('skipOut');
+    const ptSize = el('ptSize'); const ptSizeOut = el('ptSizeOut');
+    const bins = el('bins'); const binsOut = el('binsOut');
+    const zScale = el('zScale'); const zScaleOut = el('zScaleOut');
+    const buildBtn = el('build');
+    const resetView = el('resetView');
+    const fitBtn = el('fit');
+    const globalSpin = el('globalSpin');
+    const colorMode = el('colorMode');
+    const tableBody = document.querySelector('#sliceTable tbody');
+    const exportBtn = el('exportJSON');
+
+    const centroidOut = el('centroidOut');
+    const radiusOut = el('radiusOut');
+    const radVarOut = el('radVarOut');
+
+    skip.addEventListener('input', ()=> skipOut.textContent = skip.value);
+    ptSize.addEventListener('input', ()=> ptSizeOut.textContent = ptSize.value);
+    bins.addEventListener('input', ()=> binsOut.textContent = bins.value);
+    zScale.addEventListener('input', ()=> zScaleOut.textContent = zScale.value);
+
+    // ---------- State
+    let imgBitmap = null;
+    let slices = []; // [{idx, zmin, zmax, count, sym, spin, visible, group}]
+    let pointsMaterialMono = null;
+    let sourceImageData = null; // for source coloring
+
+    // ---------- Helpers
+    function loadImageBitmap(file){
+      return new Promise((resolve,reject)=>{
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = ()=>{
+          createImageBitmap(img).then(bm=>{ URL.revokeObjectURL(url); resolve(bm); });
+        };
+        img.onerror = reject; img.src = url;
+      });
+    }
+
+    function getImageData(bitmap){
+      const off = document.createElement('canvas');
+      off.width = bitmap.width; off.height = bitmap.height;
+      const ctx = off.getContext('2d');
+      ctx.drawImage(bitmap, 0, 0);
+      return ctx.getImageData(0,0,off.width, off.height);
+    }
+
+    function intensityOf(r,g,b){
+      // perceptual luma
+      return (0.2627*r + 0.6780*g + 0.0593*b) / 255;
+    }
+
+    function computeMetrics(positions){
+      // positions: Float32Array [x,y,z,...]
+      const n = positions.length/3;
+      if(n===0) return { centroid:[0,0,0], avgR:0, sigmaR:0 };
+      let cx=0, cy=0, cz=0;
+      for(let i=0;i<positions.length;i+=3){ cx+=positions[i]; cy+=positions[i+1]; cz+=positions[i+2]; }
+      cx/=n; cy/=n; cz/=n;
+      let sumR=0, sumR2=0;
+      for(let i=0;i<positions.length;i+=3){
+        const dx=positions[i]-cx, dy=positions[i+1]-cy;
+        const r=Math.hypot(dx,dy);
+        sumR+=r; sumR2+=r*r;
+      }
+      const avgR=sumR/n; const varR=sumR2/n - avgR*avgR; const sigmaR=Math.sqrt(Math.max(0,varR));
+      return { centroid:[cx,cy,cz], avgR, sigmaR };
+    }
+
+    function symmetryScoreXY(points){
+      // simple left-right symmetry around X=0
+      if(points.length===0) return 0;
+      const tol = 2.0; // px tolerance
+      // Build map of x->list of y for quick lookup
+      const pts = [];
+      for(let i=0;i<points.length;i+=3){ pts.push([points[i], points[i+1]]); }
+      let matches=0;
+      for(const [x,y] of pts){
+        const mx = -x;
+        // find near match
+        for(const [x2,y2] of pts){
+          if(Math.abs(x2-mx)<=tol && Math.abs(y2-y)<=tol){ matches++; break; }
+        }
+      }
+      return matches/ (pts.length); // 0..1
+    }
+
+    function colorForSlice(i, total){
+      // pleasant categorical
+      const hue = (i/total)*360;
+      const s = 70, l = 60;
+      const c = `hsl(${hue} ${s}% ${l}%)`;
+      return new THREE.Color(c);
+    }
+
+    function clearScene(){
+      while(root.children.length) root.remove(root.children[0]);
+    }
+
+    function updateMetricsDisplay(positions){
+      const m = computeMetrics(positions);
+      centroidOut.textContent = m.centroid.map(v=>v.toFixed(1)).join(', ');
+      radiusOut.textContent = m.avgR.toFixed(2);
+      radVarOut.textContent = m.sigmaR.toFixed(2);
+    }
+
+    function buildVoxelCloud(){
+      if(!imgBitmap){ alert('Upload an image first.'); return; }
+
+      clearScene(); slices = [];
+
+      sourceImageData = getImageData(imgBitmap);
+      const { width:W, height:H, data } = sourceImageData;
+
+      const step = parseInt(skip.value,10);
+      const binsN = parseInt(bins.value,10);
+      const depth = parseFloat(zScale.value);
+      const pSize = parseInt(ptSize.value,10);
+
+      // Normalize to centered coordinates
+      const cx = W/2, cy=H/2;
+      const scale = 1; // 1 px = 1 unit
+
+      // Preallocate arrays for each slice
+      const slicePos = Array.from({length:binsN}, ()=>[]);
+      const sliceCol = Array.from({length:binsN}, ()=>[]);
+
+      for(let y=0; y<H; y+=step){
+        for(let x=0; x<W; x+=step){
+          const idx = (y*W + x)*4;
+          const r=data[idx], g=data[idx+1], b=data[idx+2], a=data[idx+3];
+          if(a<5) continue; // ignore near‑transparent
+          const lum = intensityOf(r,g,b); // 0..1
+          const z = (lum - 0.5) * depth;
+          const bin = Math.min(binsN-1, Math.max(0, Math.floor(lum * binsN)));
+
+          const px = (x - cx) * scale;
+          const py = (cy - y) * scale; // flip so +y is up
+
+          slicePos[bin].push(px, py, z);
+
+          if(colorMode.value==='source'){
+            sliceCol[bin].push(r/255, g/255, b/255);
+          } else if(colorMode.value==='mono'){
+            const v = lum; sliceCol[bin].push(v,v,v);
+          } else {
+            const c = colorForSlice(bin, binsN); sliceCol[bin].push(c.r,c.g,c.b);
+          }
+        }
+      }
+
+      // Create Three.js objects per slice
+      for(let i=0;i<binsN;i++){
+        const positions = new Float32Array(slicePos[i]);
+        const colors = new Float32Array(sliceCol[i]);
+        const geom = new THREE.BufferGeometry();
+        geom.setAttribute('position', new THREE.BufferAttribute(positions,3));
+        geom.setAttribute('color', new THREE.BufferAttribute(colors,3));
+
+        const mat = new THREE.PointsMaterial({ size:pSize, vertexColors:true, sizeAttenuation:true, transparent:true, opacity:1.0 });
+        const pts = new THREE.Points(geom, mat);
+
+        const group = new THREE.Group();
+        group.add(pts);
+        root.add(group);
+
+        // Metrics
+        const sym = symmetryScoreXY(positions);
+        const zmin = positions.length? positions[2] : 0;
+        const zmax = positions.length? positions[positions.length-1] : 0; // not strictly min/max, but OK as summary
+        slices.push({ idx:i, zmin, zmax, count:positions.length/3, sym, spin:0, visible:true, group, positions });
+      }
+
+      // Fit to view
+      fitToView();
+      // Build table UI
+      renderTable();
+      // Update global metrics for all points
+      const allPos = new Float32Array([].concat(...slicePos));
+      updateMetricsDisplay(allPos);
+    }
+
+    function fitToView(){
+      // Compute bounds of root
+      const box = new THREE.Box3().setFromObject(root);
+      const size = new THREE.Vector3(); box.getSize(size);
+      const center = new THREE.Vector3(); box.getCenter(center);
+      const maxDim = Math.max(size.x, size.y, size.z);
+      const fitDist = maxDim * 1.4 / Math.tan((Math.PI * camera.fov) / 360);
+      camera.position.set(center.x, center.y, fitDist + center.z);
+      camera.lookAt(center);
+      controls.target.copy(center);
+      controls.update();
+    }
+
+    function renderTable(sortKey='idx', ascending=true){
+      // sort slices
+      slices.sort((a,b)=> ascending ? (a[sortKey]-b[sortKey]) : (b[sortKey]-a[sortKey]));
+      tableBody.innerHTML = '';
+      for(const sl of slices){
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${sl.idx}</td>
+          <td>${sl.zmin.toFixed(1)}</td>
+          <td>${sl.zmax.toFixed(1)}</td>
+          <td>${sl.count}</td>
+          <td><span class="badge ${sl.sym>0.66?'good': sl.sym>0.33?'warn':'bad'}">${sl.sym.toFixed(2)}</span></td>
+          <td style="min-width:120px"><input type="range" min="-2" max="2" step="0.01" value="${sl.spin}" data-idx="${sl.idx}" class="spinSlider"/></td>
+          <td><input type="checkbox" class="visChk" data-idx="${sl.idx}" ${sl.visible?'checked':''}></td>
+        `;
+        tableBody.appendChild(tr);
+      }
+      // wire events
+      tableBody.querySelectorAll('.spinSlider').forEach(sl=>{
+        sl.addEventListener('input', e=>{
+          const idx = parseInt(e.target.getAttribute('data-idx'),10);
+          const s = slices.find(s=>s.idx===idx); if(s){ s.spin = parseFloat(e.target.value); }
+        });
+      });
+      tableBody.querySelectorAll('.visChk').forEach(chk=>{
+        chk.addEventListener('change', e=>{
+          const idx = parseInt(e.target.getAttribute('data-idx'),10);
+          const s = slices.find(s=>s.idx===idx); if(s){ s.visible = chk.checked; s.group.visible = chk.checked; }
+        });
+      });
+      // sortable headers
+      document.querySelectorAll('#sliceTable thead th[data-key]').forEach(th=>{
+        th.onclick = ()=>{
+          const key = th.getAttribute('data-key');
+          const nowAsc = th.getAttribute('data-asc') !== 'false';
+          renderTable(key, !nowAsc);
+          th.setAttribute('data-asc', (!nowAsc).toString());
+        };
+      });
+    }
+
+    // ---------- Event wiring
+    fileInput.addEventListener('change', async (e)=>{
+      const f = e.target.files?.[0];
+      if(!f) return; imgBitmap = await loadImageBitmap(f);
+    });
+
+    buildBtn.addEventListener('click', buildVoxelCloud);
+    resetView.addEventListener('click', ()=>{ camera.position.set(0,0,700); controls.target.set(0,0,0); controls.update(); });
+    fitBtn.addEventListener('click', fitToView);
+
+    colorMode.addEventListener('change', ()=>{
+      // rebuild colors on the fly
+      for(const s of slices){
+        const geom = s.group.children[0].geometry;
+        const pos = geom.getAttribute('position');
+        const colors = new Float32Array(pos.count*3);
+        for(let i=0;i<pos.count;i++){
+          if(colorMode.value==='source'){
+            // back‑project to source image indices is complex; we approximate using current positions' z as luminance map
+            const lum = THREE.MathUtils.clamp((pos.getZ(i)/parseFloat(zScale.value))+0.5, 0, 1);
+            colors[i*3+0]=lum; colors[i*3+1]=lum; colors[i*3+2]=lum;
+          } else if(colorMode.value==='mono'){
+            const v=0.9; colors[i*3+0]=v; colors[i*3+1]=v; colors[i*3+2]=v;
+          } else {
+            const c = colorForSlice(s.idx, slices.length); colors[i*3+0]=c.r; colors[i*3+1]=c.g; colors[i*3+2]=c.b;
+          }
+        }
+        geom.setAttribute('color', new THREE.BufferAttribute(colors,3));
+        geom.attributes.color.needsUpdate = true;
+      }
+    });
+
+    exportBtn.addEventListener('click', ()=>{
+      const data = slices.map(({idx,zmin,zmax,count,sym,spin,visible})=>({idx,zmin,zmax,count,sym,spin,visible}));
+      const blob = new Blob([JSON.stringify({ meta:{ bins:parseInt(bins.value,10), zScale:parseFloat(zScale.value) }, slices:data }, null, 2)], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href=url; a.download='glyph_cloud_slices.json'; a.click();
+      setTimeout(()=>URL.revokeObjectURL(url), 5000);
+    });
+
+    // ---------- Animation
+    let last = performance.now();
+    function loop(t){
+      requestAnimationFrame(loop);
+      const dt = Math.min(0.05, (t-last)/1000); last = t;
+
+      const gspin = parseFloat(globalSpin.value);
+      root.rotation.y += gspin * dt;
+
+      for(const s of slices){ s.group.rotation.y += s.spin * dt; }
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    loop(performance.now());
+  </script>
+</body>
+</html>

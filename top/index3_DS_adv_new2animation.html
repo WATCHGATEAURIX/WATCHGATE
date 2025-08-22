@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Wave Animated MSDF Explorer — 3D Interactive</title>
+<style>
+  body { 
+    margin: 0; 
+    overflow: hidden; 
+    background: #111; 
+    color: #eee; 
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  }
+  #ui { 
+    position: absolute; 
+    top: 10px; 
+    left: 10px; 
+    z-index: 10; 
+    background: rgba(34, 34, 34, 0.9); 
+    padding: 15px; 
+    border-radius: 10px; 
+    backdrop-filter: blur(5px);
+    max-width: 320px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    border: 1px solid #444;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  #canvas-container { 
+    width: 100vw; 
+    height: 100vh; 
+  }
+  input[type=range] { 
+    width: 100%; 
+    margin: 8px 0; 
+    background: #444;
+    height: 6px;
+    border-radius: 3px;
+    -webkit-appearance: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #6a9fb5;
+    cursor: pointer;
+  }
+  input[type=range]::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #6a9fb5;
+    cursor: pointer;
+    border: none;
+  }
+  label { 
+    display: block; 
+    margin: 12px 0 4px; 
+    font-weight: bold;
+    color: #aaf;
+  }
+  button { 
+    background: linear-gradient(to bottom, #4a4a8a, #343464);
+    color: white; 
+    border: none; 
+    padding: 10px 15px; 
+    border-radius: 5px; 
+    cursor: pointer; 
+    margin: 8px 0;
+    width: 100%;
+    font-weight: bold;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+    transition: all 0.2s ease;
+  }
+  button:hover { 
+    background: linear-gradient(to bottom, #5a5aaa, #444484);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+  }
+  button:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  }
+  button:disabled { 
+    background: #333; 
+    color: #666; 
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+  .slider-container { 
+    margin: 12px 0; 
+  }
+  .slider-value { 
+    display: inline-block; 
+    width: 50px; 
+    text-align: right; 
+    margin-left: 10px;
+    color: #6a9fb5;
+    font-weight: bold;
+  }
+  .section { 
+    margin: 15px 0; 
+    border-top: 1px solid #444; 
+    padding-top: 10px; 
+  }
+  h3 { 
+    margin: 5px 0 10px; 
+    color: #aaf; 
+    text-align: center;
+    font-size: 1.4em;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+  }
+  .toggle-container {
+    display: flex;
+    align-items: center;
+    margin: 8px 0;
+  }
+  .toggle-container label {
+    flex: 1;
+    margin: 0;
+  }
+  input[type="checkbox"] {
+    margin-left: 10px;
+    width: 18px;
+    height: 18px;
+  }
+  #stats {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    background: rgba(34, 34, 34, 0.7);
+    padding: 8px 12px;
+    border-radius: 5px;
+    font-size: 12px;
+    color: #6a9fb5;
+  }
+  #loading {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 20px;
+    border-radius: 8px;
+    z-index: 100;
+    display: none;
+  }
+  .wave-type-btn {
+    display: inline-block;
+    width: 48%;
+    margin: 2px;
+    padding: 6px;
+    font-size: 0.9em;
+  }
+  .wave-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+  }
+</style>
+</head>
+<body>
+
+<div id="ui">
+  <h3>Wave MSDF Explorer</h3>
+  
+  <div class="section">
+    <label for="upload">Upload Image:</label>
+    <input type="file" id="upload" accept="image/*" />
+  </div>
+  
+  <div class="section">
+    <div class="slider-container">
+      <label for="shiftRange">Horizontal Shift: <span class="slider-value" id="shiftVal">0</span> px</label>
+      <input type="range" id="shiftRange" min="0" max="0" value="0" />
+    </div>
+    
+    <div class="slider-container">
+      <label for="densityRange">Point Density: <span class="slider-value" id="densityVal">2</span></label>
+      <input type="range" id="densityRange" min="1" max="5" value="2" step="1" />
+    </div>
+    
+    <div class="slider-container">
+      <label for="zScaleRange">Z Scale: <span class="slider-value" id="zScaleVal">100</span></label>
+      <input type="range" id="zScaleRange" min="10" max="500" value="100" step="10" />
+    </div>
+    
+    <div class="slider-container">
+      <label for="sizeRange">Point Size: <span class="slider-value" id="sizeVal">1.8</span></label>
+      <input type="range" id="sizeRange" min="0.5" max="5" value="1.8" step="0.1" />
+    </div>
+  </div>
+  
+  <div class="section">
+    <div class="toggle-container">
+      <label for="interpolationToggle">Bilinear Interpolation</label>
+      <input type="checkbox" id="interpolationToggle" checked />
+    </div>
+    
+    <div class="toggle-container">
+      <label for="extrapolationToggle">Pixel Extrapolation</label>
+      <input type="checkbox" id="extrapolationToggle" checked />
+    </div>
+    
+    <div class="toggle-container">
+      <label for="adaptiveToggle">Adaptive Sampling</label>
+      <input type="checkbox" id="adaptiveToggle" checked />
+    </div>
+  </div>
+  
+  <div class="section">
+    <h4>Wave Animation</h4>
+    
+    <div class="toggle-container">
+      <label for="animateToggle">Enable Animation</label>
+      <input type="checkbox" id="animateToggle" />
+    </div>
+    
+    <div class="slider-container">
+      <label for="waveSpeed">Wave Speed: <span class="slider-value" id="waveSpeedVal">1.0</span></label>
+      <input type="range" id="waveSpeed" min="0" max="5" value="1.0" step="0.1" />
+    </div>
+    
+    <div class="slider-container">
+      <label for="waveAmplitude">Wave Amplitude: <span class="slider-value" id="waveAmplitudeVal">10</span></label>
+      <input type="range" id="waveAmplitude" min="0" max="50" value="10" step="1" />
+    </div>
+    
+    <div class="slider-container">
+      <label for="waveFrequency">Wave Frequency: <span class="slider-value" id="waveFrequencyVal">0.05</span></label>
+      <input type="range" id="waveFrequency" min="0.01" max="0.2" value="0.05" step="0.01" />
+    </div>
+    
+    <label>Wave Type:</label>
+    <div class="wave-buttons">
+      <button class="wave-type-btn" data-type="sine">Sine</button>
+      <button class="wave-type-btn" data-type="cosine">Cosine</button>
+      <button class="wave-type-btn" data-type="combined">Combined</button>
+      <button class="wave-type-btn" data-type="radial">Radial</button>
+    </div>
+  </div>
+  
+  <button id="generateBtn" disabled>Generate 3D Pattern</button>
+  <button id="resetViewBtn">Reset View</button>
+  <button id="exportBtn">Export Point Cloud</button>
+</div>
+
+<div id="canvas-container"></div>
+<div id="stats">Points: 0 | FPS: 0</div>
+<div id="loading">Processing image...</div>
+
+<script type="module">
+
+import * as THREE from './js/build/three.module.js';
+import { OrbitControls } from './js/examples/jsm/controls/OrbitControls.js';
+
+let scene, camera, renderer, controls;
+let canvasWidth = 512, canvasHeight = 512;
+let imgOriginal = null;
+let imgFlipped = null;
+let hardMixCanvas, hardMixCtx;
+let depthPoints = [];
+let pointCloud;
+let statsEl, loadingEl;
+let frameCount = 0, lastTime = performance.now(), fps = 0;
+let animationEnabled = false;
+let time = 0;
+let originalPositions = null;
+let waveType = 'sine';
+
+// UI elements
+const container = document.getElementById('canvas-container');
+const uploadInput = document.getElementById('upload');
+const shiftRange = document.getElementById('shiftRange');
+const shiftVal = document.getElementById('shiftVal');
+const densityRange = document.getElementById('densityRange');
+const densityVal = document.getElementById('densityVal');
+const zScaleRange = document.getElementById('zScaleRange');
+const zScaleVal = document.getElementById('zScaleVal');
+const sizeRange = document.getElementById('sizeRange');
+const sizeVal = document.getElementById('sizeVal');
+const interpolationToggle = document.getElementById('interpolationToggle');
+const extrapolationToggle = document.getElementById('extrapolationToggle');
+const adaptiveToggle = document.getElementById('adaptiveToggle');
+const animateToggle = document.getElementById('animateToggle');
+const waveSpeed = document.getElementById('waveSpeed');
+const waveSpeedVal = document.getElementById('waveSpeedVal');
+const waveAmplitude = document.getElementById('waveAmplitude');
+const waveAmplitudeVal = document.getElementById('waveAmplitudeVal');
+const waveFrequency = document.getElementById('waveFrequency');
+const waveFrequencyVal = document.getElementById('waveFrequencyVal');
+const generateBtn = document.getElementById('generateBtn');
+const resetViewBtn = document.getElementById('resetViewBtn');
+const exportBtn = document.getElementById('exportBtn');
+const waveTypeButtons = document.querySelectorAll('.wave-type-btn');
+
+statsEl = document.getElementById('stats');
+loadingEl = document.getElementById('loading');
+
+initThreeJS();
+
+// Event listeners
+uploadInput.addEventListener('change', handleImageUpload);
+shiftRange.addEventListener('input', onShiftChange);
+densityRange.addEventListener('input', updateDensityValue);
+zScaleRange.addEventListener('input', updateZScaleValue);
+sizeRange.addEventListener('input', updateSizeValue);
+animateToggle.addEventListener('change', toggleAnimation);
+waveSpeed.addEventListener('input', updateWaveSpeed);
+waveAmplitude.addEventListener('input', updateWaveAmplitude);
+waveFrequency.addEventListener('input', updateWaveFrequency);
+generateBtn.addEventListener('click', generate3DPattern);
+resetViewBtn.addEventListener('click', resetView);
+exportBtn.addEventListener('click', exportPointCloud);
+
+waveTypeButtons.forEach(btn => {
+  btn.addEventListener('click', () => {
+    waveType = btn.dataset.type;
+    waveTypeButtons.forEach(b => b.style.background = '');
+    btn.style.background = '#5a5aaa';
+  });
+});
+
+// Set initial active wave type
+document.querySelector('.wave-type-btn[data-type="sine"]').style.background = '#5a5aaa';
+
+function initThreeJS() {
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x111111);
+
+  camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 1000);
+  camera.position.set(0, 0, 400);
+
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(window.devicePixelRatio);
+  container.appendChild(renderer.domElement);
+
+  controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.1;
+
+  // Add lighting
+  const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+  scene.add(ambientLight);
+
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+  directionalLight.position.set(1, 1, 1);
+  scene.add(directionalLight);
+
+  const directionalLight2 = new THREE.DirectionalLight(0xffffff, 0.4);
+  directionalLight2.position.set(-1, -1, -1);
+  scene.add(directionalLight2);
+
+  window.addEventListener('resize', onWindowResize);
+
+  animate();
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  
+  // Calculate FPS
+  frameCount++;
+  const now = performance.now();
+  if (now >= lastTime + 1000) {
+    fps = Math.round((frameCount * 1000) / (now - lastTime));
+    frameCount = 0;
+    lastTime = now;
+    
+    if (pointCloud) {
+      const pointCount = pointCloud.geometry.attributes.position.count;
+      statsEl.textContent = `Points: ${pointCount.toLocaleString()} | FPS: ${fps}`;
+    }
+  }
+  
+  // Update wave animation if enabled
+  if (animationEnabled && pointCloud && originalPositions) {
+    updateWaveAnimation();
+  }
+  
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+function updateWaveAnimation() {
+  time += parseFloat(waveSpeed.value) * 0.01;
+  const amplitude = parseFloat(waveAmplitude.value);
+  const frequency = parseFloat(waveFrequency.value);
+  
+  const positions = pointCloud.geometry.attributes.position.array;
+  const originalPos = originalPositions;
+  
+  for (let i = 0; i < positions.length; i += 3) {
+    const x = originalPos[i];
+    const y = originalPos[i + 1];
+    const z = originalPos[i + 2];
+    
+    let waveEffect = 0;
+    
+    switch (waveType) {
+      case 'sine':
+        waveEffect = Math.sin(x * frequency + time) * amplitude;
+        break;
+      case 'cosine':
+        waveEffect = Math.cos(y * frequency + time) * amplitude;
+        break;
+      case 'combined':
+        waveEffect = (Math.sin(x * frequency + time) + Math.cos(y * frequency + time)) * amplitude * 0.5;
+        break;
+      case 'radial':
+        const distance = Math.sqrt(x * x + y * y);
+        waveEffect = Math.sin(distance * frequency + time) * amplitude;
+        break;
+    }
+    
+    positions[i + 2] = z + waveEffect;
+  }
+  
+  pointCloud.geometry.attributes.position.needsUpdate = true;
+}
+
+function onWindowResize() {
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+function handleImageUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  loadingEl.style.display = 'block';
+  
+  const reader = new FileReader();
+  reader.onload = e => {
+    loadImage(e.target.result);
+  };
+  reader.readAsDataURL(file);
+}
+
+function loadImage(src) {
+  imgOriginal = new Image();
+  imgOriginal.crossOrigin = "anonymous";
+  imgOriginal.onload = () => {
+    canvasWidth = imgOriginal.width;
+    canvasHeight = imgOriginal.height;
+
+    // Update shiftRange max value
+    shiftRange.max = canvasWidth;
+    shiftRange.value = 0;
+    shiftVal.textContent = '0';
+
+    // Prepare flipped image
+    imgFlipped = document.createElement('canvas');
+    imgFlipped.width = canvasWidth;
+    imgFlipped.height = canvasHeight;
+    const ctxFlipped = imgFlipped.getContext('2d');
+    ctxFlipped.translate(canvasWidth, 0);
+    ctxFlipped.scale(-1, 1);
+    ctxFlipped.drawImage(imgOriginal, 0, 0);
+
+    // Prepare hard mix canvas
+    hardMixCanvas = document.createElement('canvas');
+    hardMixCanvas.width = canvasWidth;
+    hardMixCanvas.height = canvasHeight;
+    hardMixCtx = hardMixCanvas.getContext('2d');
+
+    generateBtn.disabled = false;
+    loadingEl.style.display = 'none';
+  };
+  imgOriginal.src = src;
+}
+
+function updateDensityValue() {
+  densityVal.textContent = densityRange.value;
+  if (pointCloud) {
+    generate3DPattern();
+  }
+}
+
+function updateZScaleValue() {
+  zScaleVal.textContent = zScaleRange.value;
+  if (pointCloud) {
+    generate3DPattern();
+  }
+}
+
+function updateSizeValue() {
+  sizeVal.textContent = sizeRange.value;
+  if (pointCloud) {
+    pointCloud.material.size = parseFloat(sizeRange.value);
+  }
+}
+
+function updateWaveSpeed() {
+  waveSpeedVal.textContent = waveSpeed.value;
+}
+
+function updateWaveAmplitude() {
+  waveAmplitudeVal.textContent = waveAmplitude.value;
+}
+
+function updateWaveFrequency() {
+  waveFrequencyVal.textContent = waveFrequency.value;
+}
+
+function toggleAnimation() {
+  animationEnabled = animateToggle.checked;
+}
+
+function onShiftChange(e) {
+  const val = parseInt(e.target.value, 10);
+  shiftVal.textContent = val;
+  if (pointCloud) {
+    generate3DPattern();
+  }
+}
+
+function resetView() {
+  camera.position.set(0, 0, 400);
+  controls.reset();
+}
+
+// Bilinear interpolation for smoother results
+function bilinearInterpolate(data, x, y, width, height) {
+  const x1 = Math.floor(x);
+  const y1 = Math.floor(y);
+  const x2 = Math.min(x1 + 1, width - 1);
+  const y2 = Math.min(y1 + 1, height - 1);
+  
+  // Get the four surrounding pixels
+  const idx11 = (y1 * width + x1) * 4;
+  const idx12 = (y1 * width + x2) * 4;
+  const idx21 = (y2 * width + x1) * 4;
+  const idx22 = (y2 * width + x2) * 4;
+  
+  // Calculate weights
+  const wx = x - x1;
+  const wy = y - y1;
+  const w11 = (1 - wx) * (1 - wy);
+  const w12 = wx * (1 - wy);
+  const w21 = (1 - wx) * wy;
+  const w22 = wx * wy;
+  
+  // Interpolate each channel
+  const r = data[idx11] * w11 + data[idx12] * w12 + data[idx21] * w21 + data[idx22] * w22;
+  const g = data[idx11+1] * w11 + data[idx12+1] * w12 + data[idx21+1] * w21 + data[idx22+1] * w22;
+  const b = data[idx11+2] * w11 + data[idx12+2] * w12 + data[idx21+2] * w21 + data[idx22+2] * w22;
+  
+  return (r + g + b) / (3 * 255);
+}
+
+// Calculate gradient for adaptive sampling
+function calculateGradient(data, x, y, width, height) {
+  if (x <= 0 || x >= width - 1 || y <= 0 || y >= height - 1) {
+    return 0;
+  }
+  
+  const idx = (y * width + x) * 4;
+  const idxLeft = (y * width + (x - 1)) * 4;
+  const idxRight = (y * width + (x + 1)) * 4;
+  const idxTop = ((y - 1) * width + x) * 4;
+  const idxBottom = ((y + 1) * width + x) * 4;
+  
+  const center = (data[idx] + data[idx+1] + data[idx+2]) / 3;
+  const left = (data[idxLeft] + data[idxLeft+1] + data[idxLeft+2]) / 3;
+  const right = (data[idxRight] + data[idxRight+1] + data[idxRight+2]) / 3;
+  const top = (data[idxTop] + data[idxTop+1] + data[idxTop+2]) / 3;
+  const bottom = (data[idxBottom] + data[idxBottom+1] + data[idxBottom+2]) / 3;
+  
+  const dx = right - left;
+  const dy = bottom - top;
+  
+  return Math.sqrt(dx * dx + dy * dy) / 255;
+}
+
+function generate3DPattern() {
+  loadingEl.style.display = 'block';
+  
+  // Use setTimeout to allow the UI to update before heavy processing
+  setTimeout(() => {
+    const shift = parseInt(shiftRange.value, 10);
+    const baseStep = parseInt(densityRange.value, 10);
+    const zScale = parseInt(zScaleRange.value, 10);
+    const useInterpolation = interpolationToggle.checked;
+    const useExtrapolation = extrapolationToggle.checked;
+    const useAdaptive = adaptiveToggle.checked;
+
+    // Hard Mix: combine original and flipped with horizontal shift
+    hardMixCtx.clearRect(0, 0, canvasWidth, canvasHeight);
+
+    // Draw original
+    hardMixCtx.globalCompositeOperation = 'source-over';
+    hardMixCtx.drawImage(imgOriginal, 0, 0);
+
+    // Draw flipped shifted with 'difference' mode
+    hardMixCtx.globalCompositeOperation = 'difference';
+    hardMixCtx.drawImage(imgFlipped, shift, 0);
+
+    // Get pixel data
+    const imgData = hardMixCtx.getImageData(0, 0, canvasWidth, canvasHeight);
+    const data = imgData.data;
+
+    // Remove old point cloud if exists
+    if (pointCloud) {
+      scene.remove(pointCloud);
+      pointCloud.geometry.dispose();
+      pointCloud.material.dispose();
+      pointCloud = null;
+    }
+
+    depthPoints = [];
+    const geometryPoints = new THREE.BufferGeometry();
+    const positions = [];
+    const colors = [];
+    
+    // Precalculate gradient map for adaptive sampling if needed
+    let gradientMap = null;
+    if (useAdaptive) {
+      gradientMap = new Float32Array(canvasWidth * canvasHeight);
+      for (let y = 0; y < canvasHeight; y++) {
+        for (let x = 0; x < canvasWidth; x++) {
+          gradientMap[y * canvasWidth + x] = calculateGradient(data, x, y, canvasWidth, canvasHeight);
+        }
+      }
+    }
+
+    for (let y = 0; y < canvasHeight; y += baseStep) {
+      for (let x = 0; x < canvasWidth; x += baseStep) {
+        let step = baseStep;
+        
+        // Adaptive sampling - use smaller steps in high gradient areas
+        if (useAdaptive && gradientMap) {
+          const gradient = gradientMap[y * canvasWidth + x];
+          if (gradient > 0.1) {
+            step = Math.max(1, Math.floor(baseStep / 2));
+          }
+        }
+        
+        let brightness;
+        
+        if (useInterpolation) {
+          // Use bilinear interpolation for smoother results
+          brightness = bilinearInterpolate(data, x, y, canvasWidth, canvasHeight);
+        } else {
+          // Use direct pixel sampling
+          const idx = (y * canvasWidth + x) * 4;
+          const r = data[idx];
+          const g = data[idx+1];
+          const b = data[idx+2];
+          brightness = (r + g + b) / (3 * 255);
+        }
+
+        if (brightness > 0.1) {
+          // x, y as horizontal/vertical plane
+          // z is from shift — map brightness to z depth
+          const z = brightness * zScale;
+
+          positions.push(x - canvasWidth/2);
+          positions.push(canvasHeight/2 - y);
+          positions.push(z);
+
+          // Use color based on brightness with some variation
+          const colorVariation = 0.2;
+          const r = brightness + (Math.random() - 0.5) * colorVariation;
+          const g = brightness + (Math.random() - 0.5) * colorVariation;
+          const b = brightness + (Math.random() - 0.5) * colorVariation;
+          colors.push(r, g, b);
+          
+          // Extrapolate additional points if enabled
+          if (useExtrapolation && step > 1) {
+            for (let dy = 0; dy < step; dy += Math.max(1, step/2)) {
+              for (let dx = 0; dx < step; dx += Math.max(1, step/2)) {
+                if (dx === 0 && dy === 0) continue; // Skip the center point we already added
+                
+                const nx = x + dx;
+                const ny = y + dy;
+                
+                if (nx < canvasWidth && ny < canvasHeight) {
+                  let nbrightness;
+                  
+                  if (useInterpolation) {
+                    nbrightness = bilinearInterpolate(data, nx, ny, canvasWidth, canvasHeight);
+                  } else {
+                    const nidx = (ny * canvasWidth + nx) * 4;
+                    const nr = data[nidx];
+                    const ng = data[nidx+1];
+                    const nb = data[nidx+2];
+                    nbrightness = (nr + ng + nb) / (3 * 255);
+                  }
+                  
+                  if (nbrightness > 0.1) {
+                    const nz = nbrightness * zScale;
+                    
+                    positions.push(nx - canvasWidth/2);
+                    positions.push(canvasHeight/2 - ny);
+                    positions.push(nz);
+                    
+                    // Use color based on brightness with some variation
+                    const nr = nbrightness + (Math.random() - 0.5) * colorVariation;
+                    const ng = nbrightness + (Math.random() - 0.5) * colorVariation;
+                    const nb = nbrightness + (Math.random() - 0.5) * colorVariation;
+                    colors.push(nr, ng, nb);
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    geometryPoints.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geometryPoints.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+
+    const material = new THREE.PointsMaterial({
+      size: parseFloat(sizeRange.value),
+      vertexColors: true,
+      sizeAttenuation: true,
+      transparent: true,
+      opacity: 0.9
+    });
+
+    pointCloud = new THREE.Points(geometryPoints, material);
+    scene.add(pointCloud);
+    
+    // Store original positions for wave animation
+    originalPositions = new Float32Array(positions);
+    
+    loadingEl.style.display = 'none';
+  }, 100);
+}
+
+function exportPointCloud() {
+  if (!pointCloud) return;
+  
+  // Create a dialog to save the point cloud data
+  const points = pointCloud.geometry.attributes.position.array;
+  const colors = pointCloud.geometry.attributes.color.array;
+  
+  let objString = "# MSDF 3D Point Cloud\n";
+  objString += "# Generated by MSDF Explorer\n\n";
+  
+  // Add vertices with colors as comments
+  for (let i = 0; i < points.length; i += 3) {
+    objString += `v ${points[i]} ${points[i+1]} ${points[i+2]}\n`;
+    objString += `# Color: ${colors[i]} ${colors[i+1]} ${colors[i+2]}\n`;
+  }
+  
+  // Create a blob and download link
+  const blob = new Blob([objString], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'msdf_point_cloud.obj';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+</script>
+
+</body>
+</html>
