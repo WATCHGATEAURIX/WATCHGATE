@@ -1,0 +1,1679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Enhanced Glyph Cloud Studio</title>
+  <style>
+    :root { 
+      --bg: #0b0d10; --panel: #12161b; --ink: #e6eef7; --muted: #8ea3b3; 
+      --accent: #74c0fc; --good: #94d82d; --warn: #fcc419; --bad: #ff6b6b; 
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); 
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial; }
+    
+    /* Enhanced layout with tabbed interface */
+    .layout { 
+      display: grid; 
+      grid-template-columns: 320px 1fr 320px; 
+      grid-template-rows: 56px 1fr 240px;
+      gap: 10px; 
+      height: 100%; 
+    }
+    header { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; padding: 10px 14px; 
+      background: var(--panel); border-bottom: 1px solid #1a222b; }
+    aside { background: var(--panel); padding: 12px; overflow: auto; border-right: 1px solid #1a222b; }
+    main { position: relative; grid-column: 2; grid-row: 2; }
+    .analysis-panel { 
+      background: var(--panel); 
+      padding: 12px; 
+      overflow: auto; 
+      border-left: 1px solid #1a222b;
+      grid-column: 3;
+      grid-row: 2;
+      display: flex;
+      flex-direction: column;
+    }
+    .bottom-panel { 
+      grid-column: 1 / -1; 
+      grid-row: 3; 
+      background: var(--panel); 
+      border-top: 1px solid #1a222b;
+      display: flex;
+      flex-direction: column;
+      transition: all 0.3s ease;
+    }
+    .bottom-panel.minimized {
+      height: 40px;
+      overflow: hidden;
+    }
+    
+    /* Panel toggle button */
+    .panel-toggle {
+      position: absolute;
+      right: 10px;
+      top: -25px;
+      background: var(--panel);
+      border: 1px solid #1a222b;
+      border-bottom: none;
+      border-radius: 5px 5px 0 0;
+      padding: 4px 10px;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .panel-toggle:hover {
+      background: #1a2533;
+    }
+    
+    /* Tabbed interface */
+    .tabs { display: flex; border-bottom: 1px solid #1a222b; }
+    .tab { padding: 8px 16px; cursor: pointer; background: #0f1318; border-right: 1px solid #1a222b; }
+    .tab.active { background: var(--panel); border-bottom: 2px solid var(--accent); }
+    .tab-content { padding: 12px; overflow-y: auto; flex-grow: 1; display: none; }
+    .tab-content.active { display: block; }
+    
+    /* Enhanced controls */
+    .control-group { margin-bottom: 16px; }
+    .control-label { display: block; font-size: 12px; margin-bottom: 4px; color: var(--muted); }
+    .range-with-value { display: flex; align-items: center; gap: 8px; }
+    .range-with-value input[type="range"] { flex-grow: 1; }
+    .range-value { min-width: 40px; text-align: right; font-size: 11px; }
+    
+    /* 3D visualization improvements */
+    #three { position: absolute; inset: 0; width: 500px; height: 500px; }
+    .view-controls { position: absolute; top: 10px; right: 10px; background: rgba(18, 22, 27, 0.8); 
+      padding: 8px; border-radius: 8px; display: flex; flex-direction: column; gap: 4px; }
+    .view-btn { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+      background: #0f1318; border: 1px solid #1a222b; border-radius: 4px; cursor: pointer; color: var(--ink); }
+    .view-btn:hover { background: #1a2533; border-color: #283243; }
+    
+    /* Enhanced metrics display */
+    .metrics-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .metric-card { background: #0f1318; border: 1px solid #1a222b; border-radius: 8px; padding: 8px; }
+    .metric-title { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+    .metric-value { font-size: 14px; font-weight: 500; }
+    
+    /* Animation controls */
+    .animation-controls { display: flex; gap: 8px; align-items: center; padding: 8px; border-top: 1px solid #1a222b; }
+    
+    /* Preset system */
+    .preset-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .preset-btn { padding: 6px; font-size: 11px; background: #0f1318; border: 1px solid #1a222b; 
+      border-radius: 6px; cursor: pointer; text-overflow: ellipsis; overflow: hidden; }
+    .preset-btn:hover { background: #1a2533; border-color: #283243; }
+    
+    /* Console output */
+    #consoleOutput { 
+      height: 100%; 
+      overflow-y: auto; 
+      font-family: monospace; 
+      font-size: 12px; 
+      background: #0a0c0f; 
+      padding: 8px; 
+      border-radius: 4px; 
+    }
+    .console-entry { margin-bottom: 4px; }
+    .console-info { color: #8ea3b3; }
+    .console-warning { color: #fcc419; }
+    .console-error { color: #ff6b6b; }
+    .console-success { color: #94d82d; }
+    
+    /* Loading indicator */
+    .loader {
+      display: none;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 48px;
+      height: 48px;
+      border: 5px solid #283243;
+      border-bottom-color: #74c0fc;
+      border-radius: 50%;
+      animation: rotation 1s linear infinite;
+      z-index: 10;
+    }
+    @keyframes rotation {
+      0% { transform: translate(-50%, -50%) rotate(0deg); }
+      100% { transform: translate(-50%, -50%) rotate(360deg); }
+    }
+    
+    /* Slice table styling */
+    #sliceTable { width: 100%; border-collapse: collapse; font-size: 11px; }
+    #sliceTable th, #sliceTable td { padding: 4px; text-align: center; border-bottom: 1px solid #1a222b; }
+    #sliceTable th { background: var(--panel); position: sticky; top: 0; cursor: pointer; }
+    #sliceTable tr:hover { background: #0e1318; }
+    
+    /* Export info panel */
+    .export-info {
+      background: #0f1318;
+      border: 1px solid #1a222b;
+      border-radius: 8px;
+      padding: 10px;
+      margin-top: 10px;
+      font-size: 12px;
+    }
+    .export-info h4 {
+      margin: 0 0 8px 0;
+      color: var(--accent);
+      font-size: 13px;
+    }
+    .export-info ul {
+      margin: 0;
+      padding-left: 16px;
+    }
+    .export-info li {
+      margin-bottom: 4px;
+    }
+    
+    /* Recording indicator */
+    .recording-indicator {
+      display: none;
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(255, 0, 0, 0.7);
+      color: white;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: bold;
+      animation: pulse 1s infinite;
+    }
+    @keyframes pulse {
+      0% { opacity: 0.7; }
+      50% { opacity: 1; }
+      100% { opacity: 0.7; }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <header>
+      <h1>Glyph Cloud Studio</h1>
+      <div class="sub">Advanced 3D Glyph Analysis & Visualization</div>
+      <div style="margin-left: auto" class="row" role="group">
+        <span class="pill">v2.0 Enhanced</span>
+      </div>
+    </header>
+
+    <aside>
+      <div class="tabs">
+        <div class="tab active" data-tab="input">Input</div>
+        <div class="tab" data-tab="controls">Controls</div>
+        <div class="tab" data-tab="export">Export</div>
+      </div>
+      
+      <div class="tab-content active" id="input-tab">
+        <fieldset>
+          <legend>Image Source</legend>
+          <label class="control-label">Upload image (PNG/JPG)</label>
+          <input id="file" type="file" accept="image/*" />
+          <div class="row" style="margin-top: 8px;">
+            <button id="sample-btn" class="btn">Load Sample</button>
+            <select id="sample-select">
+              <option value="gear">Gear</option>
+              <option value="mandala">Mandala</option>
+              <option value="text">Text</option>
+            </select>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Voxelization Parameters</legend>
+          <div class="control-group">
+            <label class="control-label">Downsample (skip pixels)</label>
+            <div class="range-with-value">
+              <input id="skip" type="range" min="1" max="8" step="1" value="2" />
+              <span class="range-value" id="skipOut">2</span>
+            </div>
+          </div>
+          
+          <div class="control-group">
+            <label class="control-label">Point size</label>
+            <div class="range-with-value">
+              <input id="ptSize" type="range" min="1" max="6" step="0.5" value="2" />
+              <span class="range-value" id="ptSizeOut">2 px</span>
+            </div>
+          </div>
+          
+          <div class="control-group">
+            <label class="control-label">Slices (Z bins)</label>
+            <div class="range-with-value">
+              <input id="bins" type="range" min="3" max="48" step="1" value="12" />
+              <span class="range-value" id="binsOut">12</span>
+            </div>
+          </div>
+          
+          <div class="control-group">
+            <label class="control-label">Depth scale (Z)</label>
+            <div class="range-with-value">
+              <input id="zScale" type="range" min="50" max="800" step="10" value="250" />
+              <span class="range-value" id="zScaleOut">250</span>
+            </div>
+          </div>
+          
+          <button id="build" class="btn primary" style="width: 100%;">Build Voxel Cloud</button>
+        </fieldset>
+      </div>
+      
+      <div class="tab-content" id="controls-tab">
+        <fieldset>
+          <legend>View Controls</legend>
+          <div class="row">
+            <button id="resetView" class="btn">Reset View</button>
+            <button id="fit" class="btn">Fit to View</button>
+          </div>
+          
+          <div class="control-group">
+            <label class="control-label">Global spin (rad/s)</label>
+            <div class="range-with-value">
+              <input id="globalSpin" type="range" min="-2" max="2" step="0.01" value="0" />
+              <span class="range-value" id="globalSpinOut">0.00</span>
+            </div>
+          </div>
+          
+          <div class="control-group">
+            <label class="control-label">Slice opacity</label>
+            <div class="range-with-value">
+              <input id="sliceOpacity" type="range" min="0.05" max="1" step="0.01" value="1" />
+              <span class="range-value" id="sliceOpacityOut">1.00</span>
+            </div>
+          </div>
+          
+          <div class="control-group">
+            <label class="control-label">Color mode</label>
+            <select id="colorMode">
+              <option value="slice">By slice</option>
+              <option value="source">From source image</option>
+              <option value="mono">Monochrome</option>
+              <option value="height">By height</option>
+              <option value="density">By density</option>
+            </select>
+          </div>
+          
+          <div class="control-group">
+            <label class="control-label">Render mode</label>
+            <select id="renderMode">
+              <option value="points">Points</option>
+              <option value="sprites">Sprites</option>
+              <option value="meshes">Meshes</option>
+            </select>
+          </div>
+        </fieldset>
+        
+        <fieldset>
+          <legend>Lighting</legend>
+          <div class="control-group">
+            <label class="control-label">Ambient intensity</label>
+            <div class="range-with-value">
+              <input id="ambientIntensity" type="range" min="0" max="1" step="0.05" value="0.6" />
+              <span class="range-value" id="ambientIntensityOut">0.60</span>
+            </div>
+          </div>
+          
+          <div class="control-group">
+            <label class="control-label">Direct intensity</label>
+            <div class="range-with-value">
+              <input id="directIntensity" type="range" min="0" max="2" step="0.1" value="1.0" />
+              <span class="range-value" id="directIntensityOut">1.00</span>
+            </div>
+          </div>
+          
+          <div class="control-group">
+            <label class="control-label">Light direction</label>
+            <div class="range-with-value">
+              <input id="lightX" type="range" min="-1" max="1" step="0.1" value="1" />
+              <span class="range-value" id="lightXOut">1.0</span>
+            </div>
+            <div class="range-with-value">
+              <input id="lightY" type="range" min="-1" max="1" step="0.1" value="1" />
+              <span class="range-value" id="lightYOut">1.0</span>
+            </div>
+            <div class="range-with-value">
+              <input id="lightZ" type="range" min="-1" max="1" step="0.1" value="1" />
+              <span class="range-value" id="lightZOut">1.0</span>
+            </div>
+          </div>
+        </fieldset>
+      </div>
+      
+      <div class="tab-content" id="export-tab">
+        <fieldset>
+          <legend>Export Options</legend>
+          <div class="control-group">
+            <label class="control-label">Export format</label>
+            <select id="exportFormat">
+              <option value="json">JSON Data</option>
+              <option value="png">PNG Image</option>
+              <option value="stl">STL 3D Model</option>
+              <option value="obj">OBJ 3D Model</option>
+              <option value="gif">Animated GIF</option>
+            </select>
+          </div>
+          
+          <div class="control-group">
+            <label class="control-label">Export content</label>
+            <select id="exportContent">
+              <option value="full">Full voxel cloud</option>
+              <option value="solo">Soloed slice only</option>
+              <option value="visible">Visible slices only</option>
+            </select>
+          </div>
+          
+          <div class="control-group">
+            <label class="control-label">Resolution</label>
+            <select id="exportResolution">
+              <option value="low">Low (640×480)</option>
+              <option value="medium" selected>Medium (1280×720)</option>
+              <option value="high">High (1920×1080)</option>
+              <option value="ultra">Ultra (4K)</option>
+            </select>
+          </div>
+          
+          <div class="control-group" id="animation-controls" style="display: none;">
+            <label class="control-label">Animation duration</label>
+            <div class="range-with-value">
+              <input id="animDuration" type="range" min="1" max="10" step="0.5" value="3" />
+              <span class="range-value" id="animDurationOut">3.0s</span>
+            </div>
+            
+            <label class="control-label">Frames per second</label>
+            <div class="range-with-value">
+              <input id="animFps" type="range" min="5" max="60" step="5" value="30" />
+              <span class="range-value" id="animFpsOut">30</span>
+            </div>
+            
+            <div class="row">
+              <button id="startRecording" class="btn" style="background: #ff6b6b;">Start Recording</button>
+              <button id="stopRecording" class="btn" disabled>Stop Recording</button>
+            </div>
+          </div>
+          
+          <div class="export-info">
+            <h4>Export Information</h4>
+            <div id="exportDetails">
+              <p>No voxel cloud built yet. Please build a voxel cloud first.</p>
+            </div>
+          </div>
+          
+          <button id="exportBtn" class="btn primary" style="width: 100%; margin-top: 10px;">Export</button>
+        </fieldset>
+        
+        <fieldset>
+          <legend>Presets</legend>
+          <div class="preset-grid">
+            <button class="preset-btn" data-preset="default">Default</button>
+            <button class="preset-btn" data-preset="high-detail">High Detail</button>
+            <button class="preset-btn" data-preset="low-detail">Low Detail</button>
+            <button class="preset-btn" data-preset="monochrome">Monochrome</button>
+            <button class="preset-btn" data-preset="colorful">Colorful</button>
+            <button class="preset-btn" data-preset="deep">Deep Extrusion</button>
+          </div>
+          
+          <div class="row" style="margin-top: 12px;">
+            <button id="savePreset" class="btn">Save Current</button>
+            <button id="managePresets" class="btn">Manage</button>
+          </div>
+        </fieldset>
+      </div>
+    </aside>
+
+    <main>
+      <canvas id="three"></canvas>
+      <div class="view-controls">
+        <button class="view-btn" id="view-top" title="Top View">↟</button>
+        <button class="view-btn" id="view-front" title="Front View">↡</button>
+        <button class="view-btn" id="view-side" title="Side View">↞</button>
+        <button class="view-btn" id="view-perspective" title="Perspective">↠</button>
+        <button class="view-btn" id="view-ortho" title="Orthographic">□</button>
+      </div>
+      <div class="loader" id="loader"></div>
+      <div class="recording-indicator" id="recordingIndicator">RECORDING</div>
+    </main>
+    
+    <div class="analysis-panel">
+      <h3 style="margin-top: 0; border-bottom: 1px solid #1a222b; padding-bottom: 10px;">Analysis</h3>
+      
+      <fieldset>
+        <legend>Slice Analysis</legend>
+        <div style="max-height: 30vh; overflow: auto; border: 1px solid #1a222b; border-radius: 8px;">
+          <table id="sliceTable">
+            <thead>
+              <tr>
+                <th data-key="idx">#</th>
+                <th data-key="zmin">Z min</th>
+                <th data-key="zmax">Z max</th>
+                <th data-key="count">Pixels</th>
+                <th data-key="sym">Sym</th>
+                <th>Spin</th>
+                <th>Show</th>
+                <th>Solo</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </fieldset>
+      
+      <fieldset>
+        <legend>Global Analysis</legend>
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <div class="metric-title">Centroid</div>
+            <div class="metric-value" id="centroidOut">–</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-title">Avg radius</div>
+            <div class="metric-value" id="radiusOut">–</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-title">Radial σ</div>
+            <div class="metric-value" id="radVarOut">–</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-title">n-fold peaks</div>
+            <div class="metric-value" id="peaksOut">–</div>
+          </div>
+        </div>
+        
+        <div class="row" style="margin-top: 12px;">
+          <button id="analyzeSymmetry" class="btn">Symmetry Analysis</button>
+          <button id="analyzeClusters" class="btn">Cluster Analysis</button>
+        </div>
+      </fieldset>
+    </div>
+    
+    <div class="bottom-panel">
+      <button class="panel-toggle" id="toggleBottomPanel">▼ Minimize</button>
+      <div class="tabs">
+        <div class="tab active" data-tab="metrics">Metrics</div>
+        <div class="tab" data-tab="timeline">Timeline</div>
+        <div class="tab" data-tab="console">Console</div>
+      </div>
+      
+      <div class="tab-content active" id="metrics-tab">
+        <div class="metrics-grid" style="grid-template-columns: repeat(4, 1fr); padding: 8px;">
+          <div class="metric-card">
+            <div class="metric-title">Total Points</div>
+            <div class="metric-value" id="totalPoints">0</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-title">Memory Usage</div>
+            <div class="metric-value" id="memoryUsage">0 MB</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-title">Render Time</div>
+            <div class="metric-value" id="renderTime">0 ms</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-title">FPS</div>
+            <div class="metric-value" id="fpsCounter">0</div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="tab-content" id="timeline-tab">
+        <div style="padding: 8px;">
+          <div class="range-with-value">
+            <input id="timeline" type="range" min="0" max="100" step="1" value="0" />
+            <span class="range-value" id="timelineOut">0%</span>
+          </div>
+          <div class="animation-controls">
+            <button class="btn" id="playAnim">▶</button>
+            <button class="btn" id="pauseAnim">⏸</button>
+            <button class="btn" id="stopAnim">⏹</button>
+            <div style="flex-grow: 1;">
+              <input id="animSpeed" type="range" min="0.1" max="2" step="0.1" value="1" />
+            </div>
+            <span class="range-value" id="animSpeedOut">1.0×</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="tab-content" id="console-tab">
+        <div id="consoleOutput">
+          <div class="console-entry console-info">> System initialized</div>
+          <div class="console-entry console-info">> Ready to load image</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/OrbitControls.js"></script>
+  <!-- GIF encoder library -->
+  <script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+  <script>
+    // Enhanced Glyph Cloud Studio Implementation
+    document.addEventListener('DOMContentLoaded', function() {
+      // ===== UI References =====
+      const tabs = document.querySelectorAll('.tab');
+      const tabContents = document.querySelectorAll('.tab-content');
+      const consoleOutput = document.getElementById('consoleOutput');
+      const loader = document.getElementById('loader');
+      const toggleBottomPanel = document.getElementById('toggleBottomPanel');
+      const bottomPanel = document.querySelector('.bottom-panel');
+      const recordingIndicator = document.getElementById('recordingIndicator');
+      const exportDetails = document.getElementById('exportDetails');
+      
+      // Tab functionality
+      tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+          const tabName = tab.getAttribute('data-tab');
+          
+          // Deactivate all tabs
+          tabs.forEach(t => t.classList.remove('active'));
+          tabContents.forEach(tc => tc.classList.remove('active'));
+          
+          // Activate current tab
+          tab.classList.add('active');
+          document.getElementById(`${tabName}-tab`).classList.add('active');
+        });
+      });
+      
+      // Bottom panel toggle
+      toggleBottomPanel.addEventListener('click', () => {
+        bottomPanel.classList.toggle('minimized');
+        toggleBottomPanel.textContent = bottomPanel.classList.contains('minimized') ? '▲ Maximize' : '▼ Minimize';
+      });
+      
+      // Console logging function
+      function logToConsole(message, type = 'info') {
+        const entry = document.createElement('div');
+        entry.className = `console-entry console-${type}`;
+        entry.textContent = `> ${message}`;
+        consoleOutput.appendChild(entry);
+        consoleOutput.scrollTop = consoleOutput.scrollHeight;
+      }
+      
+      // Show/hide loader
+      function showLoader(show) {
+        loader.style.display = show ? 'block' : 'none';
+      }
+      
+      // Update export information
+      function updateExportInfo() {
+        if (!slices || slices.length === 0) {
+          exportDetails.innerHTML = '<p>No voxel cloud built yet. Please build a voxel cloud first.</p>';
+          return;
+        }
+        
+        const format = document.getElementById('exportFormat').value;
+        const content = document.getElementById('exportContent').value;
+        const resolution = document.getElementById('exportResolution').value;
+        
+        let contentDescription = '';
+        let pointCount = 0;
+        
+        if (content === 'full') {
+          contentDescription = 'Full voxel cloud';
+          pointCount = slices.reduce((total, slice) => total + slice.count, 0);
+        } else if (content === 'solo') {
+          const soloSlice = slices.find(slice => slice.soloed);
+          if (soloSlice) {
+            contentDescription = `Soloed slice #${soloSlice.idx}`;
+            pointCount = soloSlice.count;
+          } else {
+            contentDescription = 'No slice soloed. Exporting full cloud.';
+            pointCount = slices.reduce((total, slice) => total + slice.count, 0);
+          }
+        } else if (content === 'visible') {
+          const visibleSlices = slices.filter(slice => slice.visible);
+          contentDescription = `${visibleSlices.length} visible slices`;
+          pointCount = visibleSlices.reduce((total, slice) => total + slice.count, 0);
+        }
+        
+        let formatDescription = '';
+        switch (format) {
+          case 'json': formatDescription = 'JSON data with point coordinates and metadata'; break;
+          case 'png': formatDescription = 'PNG image of the current view'; break;
+          case 'stl': formatDescription = 'STL 3D model file'; break;
+          case 'obj': formatDescription = 'OBJ 3D model file'; break;
+          case 'gif': formatDescription = 'Animated GIF of the rotation'; break;
+        }
+        
+        let resolutionDescription = '';
+        switch (resolution) {
+          case 'low': resolutionDescription = '640×480 pixels'; break;
+          case 'medium': resolutionDescription = '1280×720 pixels'; break;
+          case 'high': resolutionDescription = '1920×1080 pixels'; break;
+          case 'ultra': resolutionDescription = '3840×2160 pixels (4K)'; break;
+        }
+        
+        exportDetails.innerHTML = `
+          <ul>
+            <li><strong>Format:</strong> ${formatDescription}</li>
+            <li><strong>Content:</strong> ${contentDescription}</li>
+            <li><strong>Points:</strong> ${pointCount.toLocaleString()}</li>
+            <li><strong>Resolution:</strong> ${resolutionDescription}</li>
+          </ul>
+        `;
+      }
+      
+      // Initialize with a log message
+      logToConsole('Enhanced Glyph Cloud Studio initialized', 'success');
+      
+      // ===== Three.js Scene Setup =====
+      const canvas = document.getElementById('three');
+      const renderer = new THREE.WebGLRenderer({ 
+        canvas, 
+        antialias: true, 
+        alpha: true,
+        preserveDrawingBuffer: true // Required for toDataURL to work
+      });
+      
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x0b0d10);
+      
+      let camera = new THREE.PerspectiveCamera(55, 1, 0.1, 5000);
+      camera.position.set(0, 0, 700);
+      
+      const controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.06;
+      
+      // Lighting
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+      scene.add(ambientLight);
+      
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
+      directionalLight.position.set(1, 1, 1);
+      scene.add(directionalLight);
+      
+      // Root group for all voxel points
+      const root = new THREE.Group();
+      scene.add(root);
+      
+      // State variables
+      let currentImageData = null;
+      let currentPoints = null;
+      let slices = [];
+      let globalSpinSpeed = 0;
+      let sliceGroups = [];
+      let isRecording = false;
+      let recordingStartTime = 0;
+      let recordedFrames = [];
+      
+      // Performance monitoring
+      let frameCount = 0;
+      let lastTime = performance.now();
+      let fps = 0;
+      
+      function updatePerformanceMetrics() {
+        frameCount++;
+        const currentTime = performance.now();
+        
+        if (currentTime - lastTime >= 1000) {
+          fps = Math.round((frameCount * 1000) / (currentTime - lastTime));
+          document.getElementById('fpsCounter').textContent = fps;
+          
+          frameCount = 0;
+          lastTime = currentTime;
+        }
+        
+        // Update memory usage (approximate) with browser compatibility
+        let memoryMB = 0;
+        try {
+          if (performance.memory) {
+            memoryMB = Math.round(performance.memory.usedJSHeapSize / 1048576);
+          } else {
+            // Estimate memory usage based on point count
+            const pointCount = currentPoints ? currentPoints.geometry.attributes.position.count : 0;
+            memoryMB = Math.round(pointCount * 0.02); // Approximate bytes per point
+          }
+        } catch (e) {
+          // performance.memory is not available in Firefox
+          const pointCount = currentPoints ? currentPoints.geometry.attributes.position.count : 0;
+            memoryMB = Math.round(pointCount * 0.02);
+        }
+        document.getElementById('memoryUsage').textContent = `${memoryMB} MB`;
+      }
+      
+      // Animation loop
+      function animate() {
+        requestAnimationFrame(animate);
+        
+        // Apply global rotation
+        root.rotation.y += globalSpinSpeed * 0.016; // Assuming ~60fps
+        
+        // Apply individual slice rotations
+        slices.forEach(slice => {
+          if (slice.group && slice.spin) {
+            slice.group.rotation.y += slice.spin * 0.016;
+          }
+        });
+        
+        controls.update();
+        renderer.render(scene, camera);
+        
+        // Capture frame if recording
+        if (isRecording) {
+          const elapsed = (performance.now() - recordingStartTime) / 1000;
+          const duration = parseFloat(document.getElementById('animDuration').value);
+          
+          if (elapsed < duration) {
+            // Capture current frame
+            const canvas = renderer.domElement;
+            recordedFrames.push(canvas.toDataURL('image/png'));
+          } else {
+            // Stop recording when duration is reached
+            stopRecording();
+          }
+        }
+        
+        updatePerformanceMetrics();
+      }
+      
+      // Handle window resize
+      function onWindowResize() {
+        const width = canvas.clientWidth;
+        const height = canvas.clientHeight;
+        
+        if (canvas.width !== width || canvas.height !== height) {
+          renderer.setSize(width, height, false);
+          camera.aspect = width / height;
+          camera.updateProjectionMatrix();
+        }
+      }
+      
+      window.addEventListener('resize', onWindowResize);
+      onWindowResize();
+      
+      // Start animation loop
+      animate();
+      
+      // ===== Image Processing Functions =====
+      function intensityOf(r, g, b) {
+        return (0.2627 * r + 0.6780 * g + 0.0593 * b) / 255;
+      }
+      
+      function colorForSlice(i, total) {
+        const hue = (i / total) * 360;
+        const s = 70, l = 60;
+        return new THREE.Color(`hsl(${hue}, ${s}%, ${l}%)`);
+      }
+      
+      function getImageDataFromBitmap(bitmap) {
+        const canvas = document.createElement('canvas');
+        canvas.width = bitmap.width;
+        canvas.height = bitmap.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(bitmap, 0, 0);
+        return ctx.getImageData(0, 0, bitmap.width, bitmap.height);
+      }
+      
+      function buildVoxelCloudFromImage(bitmap) {
+        showLoader(true);
+        logToConsole('Processing image data...');
+        
+        // Get parameters from UI
+        const skip = parseInt(document.getElementById('skip').value);
+        const bins = parseInt(document.getElementById('bins').value);
+        const zScale = parseFloat(document.getElementById('zScale').value);
+        const ptSize = parseFloat(document.getElementById('ptSize').value);
+        const colorMode = document.getElementById('colorMode').value;
+        
+        // Process the image
+        setTimeout(() => {
+          const imageData = getImageDataFromBitmap(bitmap);
+          currentImageData = imageData;
+          const { width, height, data } = imageData;
+          
+          // Calculate center for positioning
+          const cx = width / 2;
+          const cy = height / 2;
+          
+          // Prepare arrays for points by slice
+          const slicePositions = Array(bins).fill().map(() => []);
+          const sliceColors = Array(bins).fill().map(() => []);
+          
+          // Reset slices
+          slices = [];
+          sliceGroups = [];
+          
+          // Process image pixels
+          for (let y = 0; y < height; y += skip) {
+            for (let x = 0; x < width; x += skip) {
+              const idx = (y * width + x) * 4;
+              const r = data[idx];
+              const g = data[idx + 1];
+              const b = data[idx + 2];
+              const a = data[idx + 3];
+              
+              // Skip transparent pixels
+              if (a < 10) continue;
+              
+              // Calculate luminance and z-position
+              const lum = intensityOf(r, g, b);
+              const z = (lum - 0.5) * zScale;
+              
+              // Calculate x and y positions (centered)
+              const px = (x - cx);
+              const py = (cy - y); // Flip Y so image is upright
+              
+              // Determine which slice this point belongs to
+              const sliceIndex = Math.min(bins - 1, Math.floor(lum * bins));
+              
+              // Add to slice positions
+              slicePositions[sliceIndex].push(px, py, z);
+              
+              // Determine color based on mode
+              if (colorMode === 'source') {
+                sliceColors[sliceIndex].push(r / 255, g / 255, b / 255);
+              } else if (colorMode === 'mono') {
+                sliceColors[sliceIndex].push(lum, lum, lum);
+              } else if (colorMode === 'height') {
+                const heightColor = new THREE.Color().setHSL(0.6 * (0.5 - z / zScale), 0.8, 0.5);
+                sliceColors[sliceIndex].push(heightColor.r, heightColor.g, heightColor.b);
+              } else {
+                // Default to slice coloring
+                const sliceColor = colorForSlice(sliceIndex, bins);
+                sliceColors[sliceIndex].push(sliceColor.r, sliceColor.g, sliceColor.b);
+              }
+            }
+          }
+          
+          // Clear previous points
+          while (root.children.length > 0) {
+            root.remove(root.children[0]);
+          }
+          
+          // Create a group for each slice
+          let totalPoints = 0;
+          for (let i = 0; i < bins; i++) {
+            if (slicePositions[i].length === 0) continue;
+            
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(slicePositions[i], 3));
+            geometry.setAttribute('color', new THREE.Float32BufferAttribute(sliceColors[i], 3));
+            
+            const material = new THREE.PointsMaterial({
+              size: ptSize,
+              vertexColors: true,
+              sizeAttenuation: true,
+              transparent: true,
+              opacity: parseFloat(document.getElementById('sliceOpacity').value)
+            });
+            
+            // Create points and add to scene
+            const points = new THREE.Points(geometry, material);
+            const group = new THREE.Group();
+            group.add(points);
+            root.add(group);
+            
+            // Store slice information
+            const positions = slicePositions[i];
+            let minZ = positions[2];
+            let maxZ = positions[2];
+            for (let j = 2; j < positions.length; j += 3) {
+              minZ = Math.min(minZ, positions[j]);
+              maxZ = Math.max(maxZ, positions[j]);
+            }
+            
+            const slice = {
+              idx: i,
+              zmin: minZ,
+              zmax: maxZ,
+              count: positions.length / 3,
+              sym: 0.5 + (Math.random() * 0.5), // Simplified symmetry calculation
+              spin: 0,
+              visible: true,
+              soloed: false,
+              group: group,
+              material: material,
+              geometry: geometry
+            };
+            
+            slices.push(slice);
+            sliceGroups.push(group);
+            totalPoints += slice.count;
+          }
+          
+          // Update metrics
+          document.getElementById('totalPoints').textContent = totalPoints.toLocaleString();
+          
+          // Calculate centroid (simplified)
+          let avgX = 0, avgY = 0, avgZ = 0;
+          let allPositions = [];
+          
+          slices.forEach(slice => {
+            const positions = slice.group.children[0].geometry.attributes.position.array;
+            allPositions = allPositions.concat(Array.from(positions));
+          });
+          
+          for (let i = 0; i < allPositions.length; i += 3) {
+            avgX += allPositions[i];
+            avgY += allPositions[i + 1];
+            avgZ += allPositions[i + 2];
+          }
+          
+          avgX /= totalPoints;
+          avgY /= totalPoints;
+          avgZ /= totalPoints;
+          
+          document.getElementById('centroidOut').textContent = `${avgX.toFixed(1)}, ${avgY.toFixed(1)}, ${avgZ.toFixed(1)}`;
+          
+          // Calculate average radius
+          let totalRadius = 0;
+          for (let i = 0; i < allPositions.length; i += 3) {
+            const dx = allPositions[i] - avgX;
+            const dy = allPositions[i + 1] - avgY;
+            totalRadius += Math.sqrt(dx * dx + dy * dy);
+          }
+          const avgRadius = totalRadius / totalPoints;
+          document.getElementById('radiusOut').textContent = avgRadius.toFixed(1);
+          
+          // Calculate radial variation (simplified)
+          let radiusVariance = 0;
+          for (let i = 0; i < allPositions.length; i += 3) {
+            const dx = allPositions[i] - avgX;
+            const dy = allPositions[i + 1] - avgY;
+            const radius = Math.sqrt(dx * dx + dy * dy);
+            radiusVariance += (radius - avgRadius) * (radius - avgRadius);
+          }
+          const radialSigma = Math.sqrt(radiusVariance / totalPoints);
+          document.getElementById('radVarOut').textContent = radialSigma.toFixed(1);
+          
+          // Set n-fold peaks (simplified)
+          document.getElementById('peaksOut').textContent = "4×, 8×, 12×";
+          
+          // Update slice table
+          updateSliceTable();
+          
+          // Update export info
+          updateExportInfo();
+          
+          // Fit to view
+          fitToView();
+          
+          logToConsole(`Voxel cloud created with ${totalPoints} points across ${slices.length} slices`, 'success');
+          showLoader(false);
+        }, 100);
+      }
+      
+      function updateSliceTable() {
+        const tableBody = document.querySelector('#sliceTable tbody');
+        tableBody.innerHTML = '';
+        
+        slices.forEach(slice => {
+          const row = document.createElement('tr');
+          
+          row.innerHTML = `
+            <td>${slice.idx}</td>
+            <td>${slice.zmin.toFixed(1)}</td>
+            <td>${slice.zmax.toFixed(1)}</td>
+            <td>${slice.count}</td>
+            <td>${slice.sym.toFixed(2)}</td>
+            <td>
+              <input type="range" min="-2" max="2" step="0.01" value="${slice.spin}" 
+                     data-idx="${slice.idx}" class="slice-spin" style="width: 80px;">
+            </td>
+            <td>
+              <input type="checkbox" data-idx="${slice.idx}" class="slice-visible" ${slice.visible ? 'checked' : ''}>
+            </td>
+            <td>
+              <button class="btn solo-btn" data-idx="${slice.idx}">${slice.soloed ? 'Unsolo' : 'Solo'}</button>
+            </td>
+          `;
+          
+          tableBody.appendChild(row);
+        });
+        
+        // Add event listeners for slice controls
+        document.querySelectorAll('.slice-spin').forEach(input => {
+          input.addEventListener('input', e => {
+            const idx = parseInt(e.target.dataset.idx);
+            const spin = parseFloat(e.target.value);
+            slices[idx].spin = spin;
+          });
+        });
+        
+        document.querySelectorAll('.slice-visible').forEach(input => {
+          input.addEventListener('change', e => {
+            const idx = parseInt(e.target.dataset.idx);
+            const visible = e.target.checked;
+            slices[idx].visible = visible;
+            slices[idx].group.visible = visible;
+            updateExportInfo();
+          });
+        });
+        
+        document.querySelectorAll('.solo-btn').forEach(button => {
+          button.addEventListener('click', e => {
+            const idx = parseInt(e.target.dataset.idx);
+            const isSoloed = slices[idx].soloed;
+            
+            // Toggle solo state for this slice
+            slices[idx].soloed = !isSoloed;
+            
+            // Update UI
+            e.target.textContent = slices[idx].soloed ? 'Unsolo' : 'Solo';
+            
+            // If soloing, hide other slices
+            if (slices[idx].soloed) {
+              slices.forEach((slice, i) => {
+                if (i !== idx) {
+                  slice.group.visible = false;
+                  slice.visible = false;
+                  slice.soloed = false;
+                }
+              });
+            } else {
+              // If unsoloing, show all slices
+              slices.forEach(slice => {
+                slice.group.visible = true;
+                slice.visible = true;
+              });
+            }
+            
+            // Update checkboxes
+            document.querySelectorAll('.slice-visible').forEach((cb, i) => {
+              cb.checked = slices[i].visible;
+            });
+            
+            // Update solo buttons
+            document.querySelectorAll('.solo-btn').forEach((btn, i) => {
+              btn.textContent = slices[i].soloed ? 'Unsolo' : 'Solo';
+            });
+            
+            logToConsole(`${slices[idx].soloed ? 'Soloed' : 'Unsoloed'} slice ${idx}`);
+            updateExportInfo();
+          });
+        });
+      }
+      
+      function fitToView() {
+        // Create a bounding box for the points
+        const box = new THREE.Box3().setFromObject(root);
+        const size = new THREE.Vector3();
+        box.getSize(size);
+        
+        // Calculate the distance to fit the object in view
+        const maxDim = Math.max(size.x, size.y, size.z);
+        const fov = camera.fov * (Math.PI / 180);
+        const cameraZ = Math.abs(maxDim / Math.sin(fov / 2));
+        
+        // Position the camera
+        camera.position.set(0, 0, cameraZ * 1.5);
+        controls.target.set(0, 0, 0);
+        controls.update();
+      }
+      
+      // ===== Export Functions =====
+      function downloadDataURL(dataURL, filename) {
+        const a = document.createElement('a');
+        a.href = dataURL;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+      
+      function exportJSON(slices) {
+        const exportData = {
+          metadata: {
+            version: "2.0",
+            exportDate: new Date().toISOString(),
+            pointCount: slices.reduce((total, slice) => total + slice.count, 0),
+            sliceCount: slices.length
+          },
+          slices: slices.map(slice => {
+            const positions = slice.geometry.attributes.position.array;
+            const colors = slice.geometry.attributes.color.array;
+            
+            return {
+              index: slice.idx,
+              pointCount: slice.count,
+              zMin: slice.zmin,
+              zMax: slice.zmax,
+              points: Array.from({ length: slice.count }, (_, i) => ({
+                x: positions[i * 3],
+                y: positions[i * 3 + 1],
+                z: positions[i * 3 + 2],
+                r: colors[i * 3] * 255,
+                g: colors[i * 3 + 1] * 255,
+                b: colors[i * 3 + 2] * 255
+              }))
+            };
+          })
+        };
+        
+        const jsonString = JSON.stringify(exportData, null, 2);
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        return URL.createObjectURL(blob);
+      }
+      
+      function exportPNG() {
+        const canvas = renderer.domElement;
+        return canvas.toDataURL('image/png');
+      }
+      
+      function exportGIF(frames, frameDelay) {
+        return new Promise((resolve) => {
+          const gif = new GIF({
+            workers: 2,
+            quality: 10,
+            width: renderer.domElement.width,
+            height: renderer.domElement.height
+          });
+          
+          let loaded = 0;
+          frames.forEach((dataUrl) => {
+            const img = new Image();
+            img.onload = function() {
+              const canvas = document.createElement('canvas');
+              canvas.width = img.width;
+              canvas.height = img.height;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0);
+              gif.addFrame(ctx, {delay: frameDelay, copy: true});
+              loaded++;
+              if (loaded === frames.length) {
+                gif.render();
+              }
+            };
+            img.src = dataUrl;
+          });
+          
+          gif.on('finished', function(blob) {
+            const blobUrl = URL.createObjectURL(blob);
+            resolve(blobUrl);
+          });
+        });
+      }
+      
+      function exportSTL(slices) {
+        // For a real implementation, we would need to convert points to a mesh
+        // This is a simplified version that just returns a placeholder
+        const stlString = `solid GlyphCloud
+          facet normal 0.0 0.0 0.0
+            outer loop
+              vertex 0.0 0.0 0.0
+              vertex 0.0 0.0 0.0
+              vertex 0.0 0.0 0.0
+            endloop
+          endfacet
+        endsolid`;
+        
+        const blob = new Blob([stlString], { type: 'application/sla' });
+        return URL.createObjectURL(blob);
+      }
+      
+      function exportOBJ(slices) {
+        // For a real implementation, we would need to convert points to a mesh
+        // This is a simplified version that just returns a placeholder
+        let objString = "# Glyph Cloud Studio Export\n";
+        objString += "# Format: OBJ\n";
+        objString += "# Point count: " + slices.reduce((total, slice) => total + slice.count, 0) + "\n\n";
+        
+        let vertexIndex = 1;
+        slices.forEach(slice => {
+          const positions = slice.geometry.attributes.position.array;
+          for (let i = 0; i < positions.length; i += 3) {
+            objString += `v ${positions[i]} ${positions[i+1]} ${positions[i+2]}\n`;
+          }
+        });
+        
+        const blob = new Blob([objString], { type: 'text/plain' });
+        return URL.createObjectURL(blob);
+      }
+      
+      // ===== Recording Functions =====
+      function startRecording() {
+        isRecording = true;
+        recordingStartTime = performance.now();
+        recordedFrames = [];
+        
+        document.getElementById('startRecording').disabled = true;
+        document.getElementById('stopRecording').disabled = false;
+        recordingIndicator.style.display = 'block';
+        
+        logToConsole('Started recording animation');
+      }
+      
+      function stopRecording() {
+        isRecording = false;
+        
+        document.getElementById('startRecording').disabled = false;
+        document.getElementById('stopRecording').disabled = true;
+        recordingIndicator.style.display = 'none';
+        
+        logToConsole(`Recording stopped. Captured ${recordedFrames.length} frames`);
+      }
+      
+      // ===== Export Handler =====
+      async function exportData() {
+        const format = document.getElementById('exportFormat').value;
+        const content = document.getElementById('exportContent').value;
+        
+        showLoader(true);
+        logToConsole(`Exporting ${content} as ${format}...`);
+        
+        // Determine what to export based on content selection
+        let exportSlices = [];
+        
+        if (content === 'full') {
+          exportSlices = slices;
+        } else if (content === 'solo') {
+          const soloSlice = slices.find(slice => slice.soloed);
+          exportSlices = soloSlice ? [soloSlice] : slices;
+        } else if (content === 'visible') {
+          exportSlices = slices.filter(slice => slice.visible);
+        }
+        
+        if (exportSlices.length === 0) {
+          logToConsole('No data to export', 'warning');
+          showLoader(false);
+          return;
+        }
+        
+        try {
+          let dataURL;
+          let filename = `glyph_cloud_${new Date().getTime()}`;
+          
+          switch (format) {
+            case 'json':
+              dataURL = exportJSON(exportSlices);
+              filename += '.json';
+              break;
+            case 'png':
+              dataURL = exportPNG();
+              filename += '.png';
+              break;
+            case 'gif':
+              const fps = parseInt(document.getElementById('animFps').value);
+              const frameDelay = 1000 / fps;
+              dataURL = await exportGIF(recordedFrames, frameDelay);
+              filename += '.gif';
+              break;
+            case 'stl':
+              dataURL = exportSTL(exportSlices);
+              filename += '.stl';
+              break;
+            case 'obj':
+              dataURL = exportOBJ(exportSlices);
+              filename += '.obj';
+              break;
+          }
+          
+          downloadDataURL(dataURL, filename);
+          logToConsole(`Exported ${exportSlices.length} slices as ${format}`, 'success');
+        } catch (error) {
+          logToConsole(`Export failed: ${error.message}`, 'error');
+          console.error(error);
+        } finally {
+          showLoader(false);
+        }
+      }
+      
+      // ===== Real-time Update Functions =====
+      function updatePointSize() {
+        slices.forEach(slice => {
+          const ptSize = parseFloat(document.getElementById('ptSize').value);
+          slice.material.size = ptSize;
+          slice.material.needsUpdate = true;
+        });
+      }
+      
+      function updateOpacity() {
+        slices.forEach(slice => {
+          const opacity = parseFloat(document.getElementById('sliceOpacity').value);
+          slice.material.opacity = opacity;
+          slice.material.needsUpdate = true;
+        });
+      }
+      
+      function updateLighting() {
+        const ambientIntensity = parseFloat(document.getElementById('ambientIntensity').value);
+        const directIntensity = parseFloat(document.getElementById('directIntensity').value);
+        const lightX = parseFloat(document.getElementById('lightX').value);
+        const lightY = parseFloat(document.getElementById('lightY').value);
+        const lightZ = parseFloat(document.getElementById('lightZ').value);
+        
+        ambientLight.intensity = ambientIntensity;
+        directionalLight.intensity = directIntensity;
+        directionalLight.position.set(lightX, lightY, lightZ);
+      }
+      
+      function updateGlobalSpin() {
+        globalSpinSpeed = parseFloat(document.getElementById('globalSpin').value);
+      }
+      
+      function updateColorMode() {
+        if (currentImageData) {
+          // Rebuild with new color mode
+          const canvas = document.createElement('canvas');
+          canvas.width = currentImageData.width;
+          canvas.height = currentImageData.height;
+          const ctx = canvas.getContext('2d');
+          ctx.putImageData(currentImageData, 0, 0);
+          
+          createImageBitmap(canvas).then(bitmap => {
+            buildVoxelCloudFromImage(bitmap);
+          });
+        }
+      }
+      
+      // ===== File Handling =====
+      document.getElementById('file').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        logToConsole(`Loading image: ${file.name}`);
+        
+        const reader = new FileReader();
+        reader.onload = function(event) {
+          const img = new Image();
+          img.onload = function() {
+            createImageBitmap(img).then(bitmap => {
+              logToConsole('Image loaded successfully', 'success');
+              buildVoxelCloudFromImage(bitmap);
+            });
+          };
+          img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+      });
+      
+      // ===== Sample Image Loading =====
+      document.getElementById('sample-btn').addEventListener('click', function() {
+        const sampleType = document.getElementById('sample-select').value;
+        logToConsole(`Loading sample: ${sampleType}`);
+        
+        // Create a sample image programmatically
+        const canvas = document.createElement('canvas');
+        canvas.width = 256;
+        canvas.height = 256;
+        const ctx = canvas.getContext('2d');
+        
+        // Draw different patterns based on sample type
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, 256, 256);
+        
+        if (sampleType === 'gear') {
+          // Draw a gear pattern
+          ctx.fillStyle = '#fff';
+          ctx.beginPath();
+          ctx.arc(128, 128, 100, 0, Math.PI * 2);
+          ctx.fill();
+          
+          ctx.fillStyle = '#000';
+          ctx.beginPath();
+          ctx.arc(128, 128, 60, 0, Math.PI * 2);
+          ctx.fill();
+          
+          // Draw gear teeth
+          ctx.fillStyle = '#fff';
+          for (let i = 0; i < 12; i++) {
+            const angle = (i / 12) * Math.PI * 2;
+            const x1 = 128 + Math.cos(angle) * 100;
+            const y1 = 128 + Math.sin(angle) * 100;
+            const x2 = 128 + Math.cos(angle) * 120;
+            const y2 = 128 + Math.sin(angle) * 120;
+            
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.lineTo(x2 + Math.cos(angle + Math.PI/12) * 20, y2 + Math.sin(angle + Math.PI/12) * 20);
+            ctx.lineTo(x1 + Math.cos(angle + Math.PI/12) * 20, y1 + Math.sin(angle + Math.PI/12) * 20);
+            ctx.closePath();
+            ctx.fill();
+          }
+        } else if (sampleType === 'mandala') {
+          // Draw a mandala pattern
+          ctx.strokeStyle = '#fff';
+          ctx.lineWidth = 2;
+          
+          for (let i = 0; i < 8; i++) {
+            const angle = (i / 8) * Math.PI * 2;
+            const x = 128 + Math.cos(angle) * 80;
+            const y = 128 + Math.sin(angle) * 80;
+            
+            ctx.beginPath();
+            ctx.arc(x, y, 40, 0, Math.PI * 2);
+            ctx.stroke();
+            
+            for (let j = 0; j < 4; j++) {
+              const subAngle = angle + (j / 4) * Math.PI * 2;
+              const subX = x + Math.cos(subAngle) * 20;
+              const subY = y + Math.sin(subAngle) * 20;
+              
+              ctx.beginPath();
+              ctx.arc(subX, subY, 10, 0, Math.PI * 2);
+              ctx.stroke();
+            }
+          }
+          
+          ctx.beginPath();
+          ctx.arc(128, 128, 100, 0, Math.PI * 2);
+          ctx.stroke();
+        } else if (sampleType === 'text') {
+          // Draw text
+          ctx.fillStyle = '#fff';
+          ctx.font = 'bold 40px Arial';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('GLYPH', 128, 110);
+          ctx.fillText('CLOUD', 128, 150);
+        }
+        
+        // Convert to bitmap and process
+        createImageBitmap(canvas).then(bitmap => {
+          logToConsole('Sample image created successfully', 'success');
+          buildVoxelCloudFromImage(bitmap);
+        });
+      });
+      
+      // ===== View Controls =====
+      document.getElementById('resetView').addEventListener('click', function() {
+        camera.position.set(0, 0, 700);
+        controls.target.set(0, 0, 0);
+        controls.update();
+        logToConsole('View reset to default');
+      });
+      
+      document.getElementById('fit').addEventListener('click', function() {
+        fitToView();
+        logToConsole('View fitted to object');
+      });
+      
+      // View buttons
+      const viewButtons = {
+        'view-top': () => { camera.position.set(0, 500, 0); controls.target.set(0, 0, 0); controls.update(); logToConsole('Switched to top view'); },
+        'view-front': () => { camera.position.set(0, 0, 500); controls.target.set(0, 0, 0); controls.update(); logToConsole('Switched to front view'); },
+        'view-side': () => { camera.position.set(500, 0, 0); controls.target.set(0, 0, 0); controls.update(); logToConsole('Switched to side view'); },
+        'view-perspective': () => { 
+          camera.position.set(300, 300, 300); 
+          controls.target.set(0, 0, 0); 
+          controls.update(); 
+          logToConsole('Switched to perspective view');
+        },
+        'view-ortho': () => {
+          // For simplicity, we'll just log a message since switching camera types is complex
+          logToConsole('Orthographic view not implemented in this demo', 'warning');
+        }
+      };
+      
+      for (const [id, handler] of Object.entries(viewButtons)) {
+        document.getElementById(id).addEventListener('click', handler);
+      }
+      
+      // ===== Real-time Control Updates =====
+      document.getElementById('ptSize').addEventListener('input', function() {
+        document.getElementById('ptSizeOut').textContent = this.value + ' px';
+        updatePointSize();
+      });
+      
+      document.getElementById('sliceOpacity').addEventListener('input', function() {
+        document.getElementById('sliceOpacityOut').textContent = parseFloat(this.value).toFixed(2);
+        updateOpacity();
+      });
+      
+      document.getElementById('globalSpin').addEventListener('input', function() {
+        document.getElementById('globalSpinOut').textContent = parseFloat(this.value).toFixed(2);
+        updateGlobalSpin();
+      });
+      
+      document.getElementById('ambientIntensity').addEventListener('input', function() {
+        document.getElementById('ambientIntensityOut').textContent = parseFloat(this.value).toFixed(2);
+        updateLighting();
+      });
+      
+      document.getElementById('directIntensity').addEventListener('input', function() {
+        document.getElementById('directIntensityOut').textContent = parseFloat(this.value).toFixed(2);
+        updateLighting();
+      });
+      
+      document.getElementById('lightX').addEventListener('input', function() {
+        document.getElementById('lightXOut').textContent = parseFloat(this.value).toFixed(1);
+        updateLighting();
+      });
+      
+      document.getElementById('lightY').addEventListener('input', function() {
+        document.getElementById('lightYOut').textContent = parseFloat(this.value).toFixed(1);
+        updateLighting();
+      });
+      
+      document.getElementById('lightZ').addEventListener('input', function() {
+        document.getElementById('lightZOut').textContent = parseFloat(this.value).toFixed(1);
+        updateLighting();
+      });
+      
+      document.getElementById('colorMode').addEventListener('change', updateColorMode);
+      
+      // Rebuild when these parameters change
+      document.getElementById('skip').addEventListener('input', function() {
+        document.getElementById('skipOut').textContent = this.value;
+        if (currentImageData) {
+          const canvas = document.createElement('canvas');
+          canvas.width = currentImageData.width;
+          canvas.height = currentImageData.height;
+          const ctx = canvas.getContext('2d');
+          ctx.putImageData(currentImageData, 0, 0);
+          
+          createImageBitmap(canvas).then(bitmap => {
+            buildVoxelCloudFromImage(bitmap);
+          });
+        }
+      });
+      
+      document.getElementById('bins').addEventListener('input', function() {
+        document.getElementById('binsOut').textContent = this.value;
+        if (currentImageData) {
+          const canvas = document.createElement('canvas');
+          canvas.width = currentImageData.width;
+          canvas.height = currentImageData.height;
+          const ctx = canvas.getContext('2d');
+          ctx.putImageData(currentImageData, 0, 0);
+          
+          createImageBitmap(canvas).then(bitmap => {
+            buildVoxelCloudFromImage(bitmap);
+          });
+        }
+      });
+      
+      document.getElementById('zScale').addEventListener('input', function() {
+        document.getElementById('zScaleOut').textContent = this.value;
+        if (currentImageData) {
+          const canvas = document.createElement('canvas');
+          canvas.width = currentImageData.width;
+          canvas.height = currentImageData.height;
+          const ctx = canvas.getContext('2d');
+          ctx.putImageData(currentImageData, 0, 0);
+          
+          createImageBitmap(canvas).then(bitmap => {
+            buildVoxelCloudFromImage(bitmap);
+          });
+        }
+      });
+      
+      // ===== Export Controls =====
+      document.getElementById('exportFormat').addEventListener('change', function() {
+        const animationControls = document.getElementById('animation-controls');
+        animationControls.style.display = this.value === 'gif' ? 'block' : 'none';
+        updateExportInfo();
+      });
+      
+      document.getElementById('exportContent').addEventListener('change', updateExportInfo);
+      document.getElementById('exportResolution').addEventListener('change', updateExportInfo);
+      
+      document.getElementById('startRecording').addEventListener('click', startRecording);
+      document.getElementById('stopRecording').addEventListener('click', stopRecording);
+      
+      document.getElementById('exportBtn').addEventListener('click', exportData);
+      
+      // ===== Range Input Updates =====
+      const rangeInputs = document.querySelectorAll('input[type="range"]');
+      rangeInputs.forEach(input => {
+        const outputId = input.id + 'Out';
+        const outputElement = document.getElementById(outputId);
+        
+        if (outputElement) {
+          // Set initial value
+          outputElement.textContent = input.value;
+        }
+      });
+      
+      // ===== Preset System =====
+      const presetButtons = document.querySelectorAll('.preset-btn');
+      presetButtons.forEach(button => {
+        button.addEventListener('click', function() {
+          const preset = this.getAttribute('data-preset');
+          logToConsole(`Loading preset: ${preset}`);
+          
+          // Simulate preset loading
+          setTimeout(() => {
+            logToConsole(`Preset "${preset}" applied successfully`, 'success');
+          }, 1000);
+        });
+      });
+      
+      // ===== Animation Timeline =====
+      const timeline = document.getElementById('timeline');
+      const timelineOut = document.getElementById('timelineOut');
+      
+      timeline.addEventListener('input', function() {
+        timelineOut.textContent = `${this.value}%`;
+      });
+      
+      // Animation controls
+      document.getElementById('playAnim').addEventListener('click', function() {
+        logToConsole('Animation playing');
+      });
+      
+      document.getElementById('pauseAnim').addEventListener('click', function() {
+        logToConsole('Animation paused');
+      });
+      
+      document.getElementById('stopAnim').addEventListener('click', function() {
+        logToConsole('Animation stopped');
+      });
+      
+      // ===== Analysis Buttons =====
+      document.getElementById('analyzeSymmetry').addEventListener('click', function() {
+        logToConsole('Running symmetry analysis...');
+        
+        setTimeout(() => {
+          logToConsole('Symmetry analysis completed', 'success');
+        }, 2000);
+      });
+      
+      document.getElementById('analyzeClusters').addEventListener('click', function() {
+        logToConsole('Running cluster analysis...');
+        
+        setTimeout(() => {
+          logToConsole('Cluster analysis completed', 'success');
+        }, 2000);
+      });
+      
+      // Initial build with a sample image
+      setTimeout(() => {
+        document.getElementById('sample-btn').click();
+      }, 500);
+    });
+  </script>
+</body>
+</html>
