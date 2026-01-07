@@ -1,0 +1,1565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Glyph Analysis Studio - Advanced MSDF Explorer</title>
+<style>
+  body { margin: 0; overflow: hidden; background: #111; color: #eee; font-family: monospace; }
+  #ui { position: absolute; top: 10px; left: 10px; z-index: 10; background: #222; padding: 10px; border-radius: 6px; max-height: 90vh; overflow-y: auto; }
+  #canvas-container { width: 100vw; height: 100vh; }
+  input[type=range] { width: 200px; }
+  label { display: block; margin: 8px 0 4px; }
+  button { margin: 8px 0; padding: 6px 12px; background: #444; color: white; border: none; border-radius: 4px; cursor: pointer; }
+  button:hover { background: #555; }
+  button:disabled { background: #333; color: #777; cursor: not-allowed; }
+  
+  /* Layers table styling */
+  #layers-section { margin-top: 20px; border-top: 1px solid #444; padding-top: 15px; }
+  #layers-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  #layers-table th, #layers-table td { border: 1px solid #444; padding: 6px; text-align: left; }
+  #layers-table th { background: #333; }
+  #layers-table tr:nth-child(even) { background: #2a2a2a; }
+  .layer-action-btn { padding: 3px 8px; margin: 2px; font-size: 12px; }
+  
+  /* Slice preview styling */
+  .slice-preview { position: fixed; right: 20px; top: 20px; background: #222; padding: 10px; border-radius: 6px; z-index: 100; display: none; }
+  .slice-preview canvas { border: 1px solid #444; }
+  
+  /* 3D Reconstruction panel */
+  #reconstruction-panel { position: fixed; right: 20px; top: 320px; background: #222; padding: 10px; border-radius: 6px; z-index: 100; display: none; width: 350px; }
+  #reconstruction-panel h4 { margin-top: 0; }
+  #reconstruction-controls { margin-top: 10px; }
+  #reconstruction-canvas { width: 100%; height: 200px; border: 1px solid #444; }
+  #rotation-speed { width: 150px; margin: 0 10px; }
+  
+  /* 4D Temporal Reconstruction */
+  #temporal-reconstruction { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 80vw; height: 80vh; background: #222; border: 2px solid #555; border-radius: 8px; z-index: 1000; display: none; padding: 20px; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+  #temporal-reconstruction h3 { margin-top: 0; text-align: center; }
+  #temporal-canvas-container { width: 100%; height: calc(100% - 150px); position: relative; }
+  #temporal-controls { margin-top: 15px; text-align: center; }
+  #close-temporal { position: absolute; top: 10px; right: 10px; }
+  
+  /* Slice Animation Panel */
+  #slice-animation-panel { position: fixed; right: 20px; top: 550px; background: #222; padding: 10px; border-radius: 6px; z-index: 100; width: 350px; display: none; cursor: move; }
+  #slice-animation-panel h4 { margin-top: 0; border-bottom: 1px solid #444; padding-bottom: 8px; }
+  #animation-canvas { width: 100%; height: 200px; border: 1px solid #444; margin-bottom: 10px; }
+  #animation-controls { display: flex; flex-direction: column; gap: 8px; }
+  .animation-btn { background: #363; }
+  .animation-btn:hover { background: #474; }
+  .animation-btn.stop { background: #633; }
+  .animation-btn.stop:hover { background: #744; }
+  
+  /* Analysis Panel */
+  #analysis-panel { position: fixed; left: 20px; bottom: 20px; background: #222; padding: 10px; border-radius: 6px; z-index: 100; width: 350px; display: none; }
+  #analysis-panel h4 { margin-top: 0; border-bottom: 1px solid #444; padding-bottom: 8px; }
+  #analysis-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  #analysis-table th, #analysis-table td { border: 1px solid #444; padding: 4px; text-align: left; font-size: 12px; }
+  #analysis-table th { background: #333; }
+  
+  /* Correction Panel */
+  #correction-panel { position: fixed; left: 20px; bottom: 250px; background: #222; padding: 10px; border-radius: 6px; z-index: 100; width: 350px; display: none; }
+  #correction-panel h4 { margin-top: 0; border-bottom: 1px solid #444; padding-bottom: 8px; }
+  .correction-btn { background: #446; }
+  .correction-btn:hover { background: #557; }
+  
+  /* Tracing Panel */
+  #tracing-panel { position: fixed; left: 20px; bottom: 380px; background: #222; padding: 10px; border-radius: 6px; z-index: 100; width: 350px; display: none; }
+  #tracing-panel h4 { margin-top: 0; border-bottom: 1px solid #444; padding-bottom: 8px; }
+  .tracing-btn { background: #464; }
+  .tracing-btn:hover { background: #575; }
+  
+  /* Layout controls */
+  #layout-controls { margin-top: 20px; border-top: 1px solid #444; padding-top: 0px; }
+  .layout-btn { background: #336; }
+  .layout-btn:hover { background: #447; }
+
+          .container {
+            position: absolute;
+            top: 10px;
+            left: 500px;
+            width: 80%;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+
+
+
+</style>
+</head>
+<body>
+
+
+<div class="container">
+        <div class="position-status" id="positionStatus">Current Position: Top</div>
+
+            
+            <button id="returnButton" disabled>Return PANEL</button>
+            <button id="saveLayoutBtn" class="layout-btn">Save Current Layout</button>
+            <button id="loadLayoutBtn" class="layout-btn">Load Saved Layout</button>
+            <button id="resetLayoutBtn" class="layout-btn">Reset to Default Layout</button>
+              <label for="shiftRange">Horizontal Shift: <span id="shiftVal">0</span> px</label>
+  <input type="range" id="shiftRange" min="0" max="0" value="0" />
+             
+</div>
+
+</div>
+<div id="ui">
+
+  <label for="upload">Upload Image:</label>
+  <button id="moveButton">HIDE PANEL</button>
+  <input type="file" id="upload" accept="image/*" />
+  <div><button id="generateBtn" disabled>Generate 3D Pattern</button></div>
+  
+  
+   <div id="layers-section" style="display: none;">
+    <h3>Layer Slices</h3>
+    <button id="generateSlicesBtn">Generate Slices from Points</button>
+    <button id="analyzeAllBtn">Analyze All Slices</button>
+    <table id="layers-table">
+      <thead>
+        <tr>
+          <th>Z-Level</th>
+          <th>Points</th>
+          <th>Color</th>
+          <th>Symmetry</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="layers-tbody">
+      </tbody>
+    </table>
+  </div>
+ 
+
+</div>
+  
+
+
+<div id="canvas-container"></div>
+
+<div id="slice-preview" class="slice-preview">
+  <h4>Slice Preview</h4>
+  <canvas id="slice-canvas"></canvas>
+  <div>
+    <button id="save-slice-btn">Save Slice as PNG</button>
+    <button id="analyze-slice-btn">Analyze This Slice</button>
+    <button id="close-preview-btn">Close Preview</button>
+  </div>
+</div>
+
+<div id="reconstruction-panel">
+  <h4>3D Reconstruction</h4>
+  <canvas id="reconstruction-canvas"></canvas>
+  <div id="reconstruction-controls">
+    <label for="rotation-speed">Rotation Speed: <span id="speed-value">1.0</span>x</label>
+    <input type="range" id="rotation-speed" min="0" max="3" step="0.1" value="1.0" />
+    <button id="reset-reconstruction">Reset View</button>
+    <button id="close-reconstruction">Close</button>
+  </div>
+</div>
+
+<div id="slice-animation-panel">
+  <h4>Slice Animation</h4>
+  <canvas id="animation-canvas"></canvas>
+  <div id="animation-controls">
+    <label for="animation-speed">Animation Speed: <span id="animation-speed-value">1</span>x</label>
+    <input type="range" id="animation-speed" min="0.1" max="10" step="0.1" value="1" />
+    <div>
+      <button id="start-animation" class="animation-btn">Start Animation</button>
+      <button id="stop-animation" class="animation-btn stop" disabled>Stop Animation</button>
+    </div>
+    <div>
+      <button id="prev-slice">Previous Slice</button>
+      <button id="next-slice">Next Slice</button>
+    </div>
+    <button id="enable-tracing">Enable Tracing</button>
+  </div>
+</div>
+
+<div id="analysis-panel">
+  <h4>Slice Analysis</h4>
+  <div id="analysis-data">
+    <table id="analysis-table">
+      <tr><th>Metric</th><th>Value</th></tr>
+      <tr><td>Z-Level</td><td id="analysis-z">-</td></tr>
+      <tr><td>Width</td><td id="analysis-width">-</td></tr>
+      <tr><td>Height</td><td id="analysis-height">-</td></tr>
+      <tr><td>Point Count</td><td id="analysis-points">-</td></tr>
+      <tr><td>Density</td><td id="analysis-density">-</td></tr>
+      <tr><td>Avg Horizontal Gap</td><td id="analysis-hgap">-</td></tr>
+      <tr><td>Avg Vertical Gap</td><td id="analysis-vgap">-</td></tr>
+      <tr><td>Symmetry Score</td><td id="analysis-symmetry">-</td></tr>
+    </table>
+  </div>
+  <button id="close-analysis">Close Analysis</button>
+</div>
+
+<div id="correction-panel">
+  <h4>Symmetry Correction</h4>
+  <p>Current Z-Level: <span id="correction-z">-</span></p>
+  <div>
+    <button id="correct-left" class="correction-btn">Correct to Left</button>
+    <button id="correct-right" class="correction-btn">Correct to Right</button>
+  </div>
+  <div>
+    <label for="correction-amount">Correction Amount: <span id="correction-amount-value">1</span> px</label>
+    <input type="range" id="correction-amount" min="1" max="10" value="1" />
+  </div>
+  <button id="apply-correction">Apply Correction</button>
+  <button id="close-correction">Close</button>
+</div>
+
+<div id="tracing-panel">
+  <h4>Z-Axis Tracing</h4>
+  <p>Tracing from Z: <span id="tracing-from">-</span> to Z: <span id="tracing-to">-</span></p>
+  <div>
+    <label for="tracing-speed">Change Speed: <span id="tracing-speed-value">0</span> px/Z</label>
+    <input type="range" id="tracing-speed" min="-5" max="5" step="0.1" value="0" />
+  </div>
+  <div>
+    <button id="start-tracing" class="tracing-btn">Start Tracing</button>
+    <button id="stop-tracing" class="tracing-btn stop">Stop Tracing</button>
+  </div>
+  <div id="tracing-stats">
+    <p>New Points: <span id="tracing-new">0</span></p>
+    <p>Disappeared Points: <span id="tracing-disappeared">0</span></p>
+    <p>Average Movement: <span id="tracing-movement">0</span> px</p>
+  </div>
+  <button id="close-tracing">Close</button>
+</div>
+
+<div id="temporal-reconstruction">
+  <button id="close-temporal">X</button>
+  <h3>4D Temporal Reconstruction</h3>
+  <div id="temporal-canvas-container">
+    <!-- Three.js will render here -->
+  </div>
+  <div id="temporal-controls">
+    <label for="temporal-rotation-speed">Rotation Speed: <span id="temporal-speed-value">1.0</span>x</label>
+    <input type="range" id="temporal-rotation-speed" min="0" max="100" step="1" value="1.0" />
+    <div>
+      <button id="toggle-rotation">Pause Rotation</button>
+      <button id="reset-temporal-view">Reset View</button>
+    </div>
+    <button id="save-temporal">Save as PNG</button>
+  </div>
+</div>
+
+<script type="module">
+
+import * as THREE from './js/build/three.module.js';
+import { OrbitControls } from './js/examples/jsm/controls/OrbitControls.js';
+
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const movableDiv = document.getElementById('ui'); //movableDiv
+            const moveButton = document.getElementById('moveButton');
+            const returnButton = document.getElementById('returnButton');
+            const positionStatus = document.getElementById('positionStatus');
+            
+            // Store original position
+            const originalPosition = {
+                top: movableDiv.style.top,
+                left: movableDiv.style.left,
+                bottom: movableDiv.style.bottom
+            };
+            
+            // Function to move the div to the bottom
+            function moveToBottom() {
+                movableDiv.style.visibility = "hidden";
+                movableDiv.style.top = 'auto';
+                movableDiv.style.bottom = '20px';
+                moveButton.disabled = true;
+                returnButton.disabled = false;
+                positionStatus.textContent = 'Current Position: PANEL is HIDDEN';
+            }
+            
+            // Function to return the div to the top
+            function returnToTop() {
+                movableDiv.style.visibility = "visible";
+                movableDiv.style.top = originalPosition.top;
+                movableDiv.style.bottom = originalPosition.bottom;
+                moveButton.disabled = false;
+                returnButton.disabled = true;
+                positionStatus.textContent = 'Current Position: PANEL can be made hidden';
+            }
+            
+            // Add event listeners to buttons
+            moveButton.addEventListener('click', moveToBottom);
+            returnButton.addEventListener('click', returnToTop);
+        });
+
+
+
+
+
+
+
+
+
+
+
+let scene, camera, renderer, controls;
+let geometry, mesh;
+let canvasWidth = 512, canvasHeight = 512;
+let imgOriginal = null;
+let imgFlipped = null;
+let hardMixCanvas, hardMixCtx;
+let depthPoints = [];
+let pointCloud;
+let maxShift = 0;
+let layers = {};
+let currentSliceZ = 0;
+let reconstructionMesh = null;
+let reconstructionScene, reconstructionCamera, reconstructionRenderer;
+let rotationSpeed = 1.0;
+let temporalScene, temporalCamera, temporalRenderer, temporalControls;
+let temporalPoints = [];
+let temporalRotationSpeed = 1.0;
+let isTemporalRotating = true;
+let animationInterval = null;
+let currentAnimationSliceIndex = 0;
+let animationSpeed = 1;
+let isDragging = false;
+let dragOffsetX = 0;
+let dragOffsetY = 0;
+let isTracing = false;
+let tracingData = {};
+
+const container = document.getElementById('canvas-container');
+const uploadInput = document.getElementById('upload');
+const shiftRange = document.getElementById('shiftRange');
+const shiftVal = document.getElementById('shiftVal');
+const generateBtn = document.getElementById('generateBtn');
+const generateSlicesBtn = document.getElementById('generateSlicesBtn');
+const analyzeAllBtn = document.getElementById('analyzeAllBtn');
+const layersSection = document.getElementById('layers-section');
+const layersTbody = document.getElementById('layers-tbody');
+const slicePreview = document.getElementById('slice-preview');
+const sliceCanvas = document.getElementById('slice-canvas');
+const saveSliceBtn = document.getElementById('save-slice-btn');
+const analyzeSliceBtn = document.getElementById('analyze-slice-btn');
+const closePreviewBtn = document.getElementById('close-preview-btn');
+const reconstructionPanel = document.getElementById('reconstruction-panel');
+const reconstructionCanvas = document.getElementById('reconstruction-canvas');
+const rotationSpeedSlider = document.getElementById('rotation-speed');
+const speedValue = document.getElementById('speed-value');
+const resetReconstructionBtn = document.getElementById('reset-reconstruction');
+const closeReconstructionBtn = document.getElementById('close-reconstruction');
+const temporalReconstructionUI = document.getElementById('temporal-reconstruction');
+const temporalCanvasContainer = document.getElementById('temporal-canvas-container');
+const temporalRotationSpeedSlider = document.getElementById('temporal-rotation-speed');
+const temporalSpeedValue = document.getElementById('temporal-speed-value');
+const toggleRotationBtn = document.getElementById('toggle-rotation');
+const resetTemporalViewBtn = document.getElementById('reset-temporal-view');
+const saveTemporalBtn = document.getElementById('save-temporal');
+const closeTemporalBtn = document.getElementById('close-temporal');
+const saveLayoutBtn = document.getElementById('saveLayoutBtn');
+const loadLayoutBtn = document.getElementById('loadLayoutBtn');
+const resetLayoutBtn = document.getElementById('resetLayoutBtn');
+const animationPanel = document.getElementById('slice-animation-panel');
+const animationCanvas = document.getElementById('animation-canvas');
+const animationSpeedSlider = document.getElementById('animation-speed');
+const animationSpeedValue = document.getElementById('animation-speed-value');
+const startAnimationBtn = document.getElementById('start-animation');
+const stopAnimationBtn = document.getElementById('stop-animation');
+const prevSliceBtn = document.getElementById('prev-slice');
+const nextSliceBtn = document.getElementById('next-slice');
+const enableTracingBtn = document.getElementById('enable-tracing');
+const analysisPanel = document.getElementById('analysis-panel');
+const closeAnalysisBtn = document.getElementById('close-analysis');
+const correctionPanel = document.getElementById('correction-panel');
+const correctionZSpan = document.getElementById('correction-z');
+const correctLeftBtn = document.getElementById('correct-left');
+const correctRightBtn = document.getElementById('correct-right');
+const correctionAmountSlider = document.getElementById('correction-amount');
+const correctionAmountValue = document.getElementById('correction-amount-value');
+const applyCorrectionBtn = document.getElementById('apply-correction');
+const closeCorrectionBtn = document.getElementById('close-correction');
+const tracingPanel = document.getElementById('tracing-panel');
+const tracingFromSpan = document.getElementById('tracing-from');
+const tracingToSpan = document.getElementById('tracing-to');
+const tracingSpeedSlider = document.getElementById('tracing-speed');
+const tracingSpeedValue = document.getElementById('tracing-speed-value');
+const startTracingBtn = document.getElementById('start-tracing');
+const stopTracingBtn = document.getElementById('stop-tracing');
+const tracingNewSpan = document.getElementById('tracing-new');
+const tracingDisappearedSpan = document.getElementById('tracing-disappeared');
+const tracingMovementSpan = document.getElementById('tracing-movement');
+const closeTracingBtn = document.getElementById('close-tracing');
+
+initThreeJS();
+initReconstructionRenderer();
+
+uploadInput.addEventListener('change', handleImageUpload);
+shiftRange.addEventListener('input', onShiftChange);
+generateBtn.addEventListener('click', generate3DPattern);
+generateSlicesBtn.addEventListener('click', generateSlices);
+analyzeAllBtn.addEventListener('click', analyzeAllSlices);
+saveSliceBtn.addEventListener('click', saveSliceAsPNG);
+analyzeSliceBtn.addEventListener('click', analyzeCurrentSlice);
+closePreviewBtn.addEventListener('click', () => {
+  slicePreview.style.display = 'none';
+  saveLayout();
+});
+rotationSpeedSlider.addEventListener('input', updateRotationSpeed);
+resetReconstructionBtn.addEventListener('click', resetReconstructionView);
+closeReconstructionBtn.addEventListener('click', closeReconstruction);
+temporalRotationSpeedSlider.addEventListener('input', updateTemporalRotationSpeed);
+toggleRotationBtn.addEventListener('click', toggleTemporalRotation);
+resetTemporalViewBtn.addEventListener('click', resetTemporalView);
+saveTemporalBtn.addEventListener('click', saveTemporalAsPNG);
+closeTemporalBtn.addEventListener('click', closeTemporalReconstruction);
+saveLayoutBtn.addEventListener('click', saveLayout);
+loadLayoutBtn.addEventListener('click', loadLayout);
+resetLayoutBtn.addEventListener('click', resetLayout);
+animationSpeedSlider.addEventListener('input', updateAnimationSpeed);
+startAnimationBtn.addEventListener('click', startAnimation);
+stopAnimationBtn.addEventListener('click', stopAnimation);
+prevSliceBtn.addEventListener('click', showPreviousSlice);
+nextSliceBtn.addEventListener('click', showNextSlice);
+enableTracingBtn.addEventListener('click', enableTracing);
+closeAnalysisBtn.addEventListener('click', () => analysisPanel.style.display = 'none');
+correctLeftBtn.addEventListener('click', () => prepareCorrection('left'));
+correctRightBtn.addEventListener('click', () => prepareCorrection('right'));
+correctionAmountSlider.addEventListener('input', updateCorrectionAmount);
+applyCorrectionBtn.addEventListener('click', applyCorrection);
+closeCorrectionBtn.addEventListener('click', () => correctionPanel.style.display = 'none');
+tracingSpeedSlider.addEventListener('input', updateTracingSpeed);
+startTracingBtn.addEventListener('click', startTracing);
+stopTracingBtn.addEventListener('click', stopTracing);
+closeTracingBtn.addEventListener('click', () => tracingPanel.style.display = 'none');
+
+// Make animation panel draggable
+animationPanel.addEventListener('mousedown', startDrag);
+document.addEventListener('mousemove', drag);
+document.addEventListener('mouseup', endDrag);
+
+// Initialize with default layout or saved layout
+window.addEventListener('load', () => {
+  if (localStorage.getItem('msdfLayout')) {
+    if (confirm('A saved layout was found. Would you like to load it?')) {
+      loadLayout();
+    }
+  }
+});
+
+function initThreeJS() {
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x111111);
+
+  camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 1000);
+  camera.position.set(0, 0, 400);
+
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  container.appendChild(renderer.domElement);
+
+  controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.1;
+
+  window.addEventListener('resize', onWindowResize);
+
+  animate();
+}
+
+function initReconstructionRenderer() {
+  // Set up the reconstruction renderer for the side panel
+  reconstructionScene = new THREE.Scene();
+  reconstructionScene.background = new THREE.Color(0x222222);
+  
+  reconstructionCamera = new THREE.PerspectiveCamera(45, 350/200, 0.1, 1000);
+  reconstructionCamera.position.set(0, 0, 300);
+  
+  reconstructionRenderer = new THREE.WebGLRenderer({ 
+    canvas: reconstructionCanvas,
+    antialias: true 
+  });
+  reconstructionRenderer.setSize(350, 200);
+}
+
+function initTemporalRenderer() {
+  // Set up the temporal reconstruction renderer
+  temporalScene = new THREE.Scene();
+  temporalScene.background = new THREE.Color(0x222222);
+  
+  temporalCamera = new THREE.PerspectiveCamera(45, temporalCanvasContainer.clientWidth/temporalCanvasContainer.clientHeight, 0.1, 1000);
+  temporalCamera.position.set(0, 0, 500);
+  
+  temporalRenderer = new THREE.WebGLRenderer({ antialias: true });
+  temporalRenderer.setSize(temporalCanvasContainer.clientWidth, temporalCanvasContainer.clientHeight);
+  temporalCanvasContainer.appendChild(temporalRenderer.domElement);
+  
+  temporalControls = new OrbitControls(temporalCamera, temporalRenderer.domElement);
+  temporalControls.enableDamping = true;
+  temporalControls.dampingFactor = 0.1;
+  
+  // Add lights to the temporal scene
+  const ambientLight = new THREE.AmbientLight(0x404040);
+  temporalScene.add(ambientLight);
+  
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+  directionalLight.position.set(1, 1, 1);
+  temporalScene.add(directionalLight);
+  
+  // Handle window resize for temporal reconstruction
+  window.addEventListener('resize', onTemporalResize);
+}
+
+function onTemporalResize() {
+  if (temporalCamera && temporalRenderer) {
+    temporalCamera.aspect = temporalCanvasContainer.clientWidth / temporalCanvasContainer.clientHeight;
+    temporalCamera.updateProjectionMatrix();
+    temporalRenderer.setSize(temporalCanvasContainer.clientWidth, temporalCanvasContainer.clientHeight);
+  }
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  
+  // Rotate reconstruction if it exists
+  if (reconstructionMesh) {
+    reconstructionMesh.rotation.y += 0.01 * rotationSpeed;
+    reconstructionRenderer.render(reconstructionScene, reconstructionCamera);
+  }
+  
+  // Update temporal reconstruction if active
+  if (temporalReconstructionUI.style.display === 'block' && temporalRenderer) {
+    if (isTemporalRotating && temporalMesh) {
+      temporalMesh.rotation.y += 0.01 * temporalRotationSpeed;
+    }
+    temporalControls.update();
+    temporalRenderer.render(temporalScene, temporalCamera);
+  }
+  
+  renderer.render(scene, camera);
+}
+
+function onWindowResize() {
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+function handleImageUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    loadImage(e.target.result).then(() => {
+      saveLayout();
+    });
+  };
+  reader.readAsDataURL(file);
+}
+
+function loadImage(src) {
+  return new Promise((resolve) => {
+    imgOriginal = new Image();
+    imgOriginal.crossOrigin = "anonymous";
+    imgOriginal.onload = () => {
+      canvasWidth = imgOriginal.width;
+      canvasHeight = imgOriginal.height;
+
+      // Update shiftRange max value
+      shiftRange.max = canvasWidth;
+      shiftRange.value = 0;
+      shiftVal.textContent = '0';
+
+      // Prepare flipped image
+      imgFlipped = document.createElement('canvas');
+      imgFlipped.width = canvasWidth;
+      imgFlipped.height = canvasHeight;
+      const ctxFlipped = imgFlipped.getContext('2d');
+      ctxFlipped.translate(canvasWidth, 0);
+      ctxFlipped.scale(-1, 1);
+      ctxFlipped.drawImage(imgOriginal, 0, 0);
+
+      // Prepare hard mix canvas
+      hardMixCanvas = document.createElement('canvas');
+      hardMixCanvas.width = canvasWidth;
+      hardMixCanvas.height = canvasHeight;
+      hardMixCtx = hardMixCanvas.getContext('2d');
+
+      generateBtn.disabled = false;
+      alert('Image loaded, ready to generate 3D pattern.');
+      resolve();
+    };
+    imgOriginal.src = src;
+  });
+}
+
+function onShiftChange(e) {
+  const val = parseInt(e.target.value, 10);
+  shiftVal.textContent = val;
+  if (pointCloud) {
+    // Regenerate point cloud with new shift in real time
+    generate3DPattern(val);
+    saveLayout();
+  }
+}
+
+function generate3DPattern(shiftParam) {
+  const shift = typeof shiftParam === 'number' ? shiftParam : parseInt(shiftRange.value, 10);
+
+  // Hard Mix: combine original and flipped with horizontal shift using Hard Mix effect
+  // We simulate hard mix by comparing pixels; result is either black or white
+
+  hardMixCtx.clearRect(0, 0, canvasWidth, canvasHeight);
+
+  // Draw original
+  hardMixCtx.globalCompositeOperation = 'source-over';
+  hardMixCtx.drawImage(imgOriginal, 0, 0);
+
+  // Draw flipped shifted with 'difference' mode as a close approximation
+  hardMixCtx.globalCompositeOperation = 'difference';
+  hardMixCtx.drawImage(imgFlipped, shift, 0);
+
+  // Get pixel data
+  const imgData = hardMixCtx.getImageData(0, 0, canvasWidth, canvasHeight);
+  const data = imgData.data;
+
+  // Remove old point cloud if exists
+  if (pointCloud) {
+    scene.remove(pointCloud);
+    pointCloud.geometry.dispose();
+    pointCloud.material.dispose();
+    pointCloud = null;
+  }
+
+  depthPoints = [];
+  const geometryPoints = new THREE.BufferGeometry();
+  const positions = [];
+  const colors = [];
+
+  // Clear previous layers
+  layers = {};
+
+  for (let y = 0; y < canvasHeight; y += 2) {
+    for (let x = 0; x < canvasWidth; x += 2) {
+      const idx = (y * canvasWidth + x) * 4;
+      const r = data[idx];
+      const g = data[idx+1];
+      const b = data[idx+2];
+      const brightness = (r + g + b) / (3 * 255);
+
+      if (brightness > 0.1) {
+        // x, y as horizontal/vertical plane
+        // z is from shift — map brightness to z depth, exaggerate z for visibility
+        const z = (brightness) * 100;
+
+        positions.push(x - canvasWidth/2);
+        positions.push(canvasHeight/2 - y);
+        positions.push(z);
+
+        colors.push(brightness, brightness, brightness);
+        
+        // Store point for later slicing
+        depthPoints.push({x: x, y: y, z: z, brightness: brightness});
+      }
+    }
+  }
+
+  geometryPoints.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometryPoints.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+
+  const material = new THREE.PointsMaterial({
+    size: 1.8,
+    vertexColors: true,
+    sizeAttenuation: true,
+  });
+
+  pointCloud = new THREE.Points(geometryPoints, material);
+  scene.add(pointCloud);
+  
+  // Show the layers section
+  layersSection.style.display = 'block';
+  saveLayout();
+}
+
+function generateSlices() {
+  // Clear previous layers
+  layers = {};
+  layersTbody.innerHTML = '';
+  
+  // Group points by Z value (rounded to nearest integer for binning)
+  depthPoints.forEach(point => {
+    const zKey = Math.round(point.z);
+    if (!layers[zKey]) {
+      layers[zKey] = [];
+    }
+    layers[zKey].push(point);
+  });
+  
+  // Create table rows for each layer
+  Object.keys(layers).sort((a, b) => b - a).forEach(zKey => {
+    const points = layers[zKey];
+    const row = document.createElement('tr');
+    
+    // Z-Level cell
+    const zCell = document.createElement('td');
+    zCell.textContent = zKey;
+    row.appendChild(zCell);
+    
+    // Points count cell
+    const countCell = document.createElement('td');
+    countCell.textContent = points.length;
+    row.appendChild(countCell);
+    
+    // Color indicator cell
+    const colorCell = document.createElement('td');
+    const colorBox = document.createElement('div');
+    const brightness = points[0].brightness;
+    colorBox.style.width = '20px';
+    colorBox.style.height = '20px';
+    colorBox.style.backgroundColor = `rgb(${brightness*255}, ${brightness*255}, ${brightness*255})`;
+    colorBox.style.border = '1px solid #555';
+    colorCell.appendChild(colorBox);
+    row.appendChild(colorCell);
+    
+    // Symmetry score cell
+    const symmetryCell = document.createElement('td');
+    const symmetryScore = calculateSymmetryScore(points);
+    symmetryCell.textContent = symmetryScore.toFixed(2);
+    symmetryCell.style.color = symmetryScore > 0.8 ? '#8f8' : symmetryScore > 0.6 ? '#ff8' : '#f88';
+    row.appendChild(symmetryCell);
+    
+    // Actions cell
+    const actionsCell = document.createElement('td');
+    
+    const viewBtn = document.createElement('button');
+    viewBtn.textContent = 'View';
+    viewBtn.className = 'layer-action-btn';
+    viewBtn.onclick = () => previewSlice(zKey);
+    actionsCell.appendChild(viewBtn);
+    
+    const saveBtn = document.createElement('button');
+    saveBtn.textContent = 'Save';
+    saveBtn.className = 'layer-action-btn';
+    saveBtn.onclick = () => saveSlice(zKey);
+    actionsCell.appendChild(saveBtn);
+    
+    // Add 3D Reconstruction button
+    const reconstructBtn = document.createElement('button');
+    reconstructBtn.textContent = '3D Reconstruct';
+    reconstructBtn.className = 'layer-action-btn';
+    reconstructBtn.onclick = () => create3DReconstruction(zKey);
+    actionsCell.appendChild(reconstructBtn);
+    
+    // Add 4D Temporal Reconstruction button
+    const temporalBtn = document.createElement('button');
+    temporalBtn.textContent = '4D Temporal';
+    temporalBtn.className = 'layer-action-btn';
+    temporalBtn.onclick = () => createTemporalReconstruction(zKey);
+    actionsCell.appendChild(temporalBtn);
+    
+    // Add Analyze button
+    const analyzeBtn = document.createElement('button');
+    analyzeBtn.textContent = 'Analyze';
+    analyzeBtn.className = 'layer-action-btn';
+    analyzeBtn.onclick = () => analyzeSlice(zKey);
+    actionsCell.appendChild(analyzeBtn);
+    
+    // Add Correct button
+    const correctBtn = document.createElement('button');
+    correctBtn.textContent = 'Correct';
+    correctBtn.className = 'layer-action-btn';
+    correctBtn.onclick = () => openCorrectionPanel(zKey);
+    actionsCell.appendChild(correctBtn);
+    
+    row.appendChild(actionsCell);
+    
+    layersTbody.appendChild(row);
+  });
+  
+  // Show animation panel if we have layers
+  if (Object.keys(layers).length > 0) {
+    animationPanel.style.display = 'block';
+    currentAnimationSliceIndex = 0;
+    showSliceAtIndex(currentAnimationSliceIndex);
+  }
+  
+  saveLayout();
+}
+
+function calculateSymmetryScore(points) {
+  if (points.length === 0) return 0;
+  
+  // Find center of the points
+  let minX = Infinity, maxX = -Infinity;
+  points.forEach(point => {
+    if (point.x < minX) minX = point.x;
+    if (point.x > maxX) maxX = point.x;
+  });
+  
+  const centerX = (minX + maxX) / 2;
+  
+  // Check symmetry by comparing points on left and right sides
+  let symmetricPoints = 0;
+  const tolerance = 5; // pixels
+  
+  points.forEach(point => {
+    const expectedSymmetricX = 2 * centerX - point.x;
+    
+    // Check if there's a point at the symmetric position
+    const hasSymmetric = points.some(p => 
+      Math.abs(p.x - expectedSymmetricX) < tolerance && 
+      Math.abs(p.y - point.y) < tolerance
+    );
+    
+    if (hasSymmetric) symmetricPoints++;
+  });
+  
+  return symmetricPoints / points.length;
+}
+
+function previewSlice(zKey) {
+  const points = layers[zKey];
+  if (!points || points.length === 0) return;
+  
+  // Set up canvas for slice preview
+  sliceCanvas.width = canvasWidth;
+  sliceCanvas.height = canvasHeight;
+  const ctx = sliceCanvas.getContext('2d');
+  
+  // Clear canvas
+  ctx.fillStyle = 'black';
+  ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+  
+  // Draw points
+  ctx.fillStyle = 'white';
+  points.forEach(point => {
+    ctx.fillRect(point.x, point.y, 2, 2);
+  });
+  
+  // Show preview
+  slicePreview.style.display = 'block';
+  currentSliceZ = zKey;
+  saveLayout();
+}
+
+function saveSlice(zKey) {
+  const points = layers[zKey];
+  if (!points || points.length === 0) return;
+  
+  // Create a canvas for the slice
+  const canvas = document.createElement('canvas');
+  canvas.width = canvasWidth;
+  canvas.height = canvasHeight;
+  const ctx = canvas.getContext('2d');
+  
+  // Clear canvas
+  ctx.fillStyle = 'black';
+  ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+  
+  // Draw points
+  ctx.fillStyle = 'white';
+  points.forEach(point => {
+    ctx.fillRect(point.x, point.y, 2, 2);
+  });
+  
+  // Convert to data URL and trigger download
+  const dataUrl = canvas.toDataURL('image/png');
+  const a = document.createElement('a');
+  a.href = dataUrl;
+  a.download = `slice_z_${zKey}.png`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+function saveSliceAsPNG() {
+  saveSlice(currentSliceZ);
+}
+
+// New functions for 3D reconstruction feature
+function create3DReconstruction(zKey) {
+  const points = layers[zKey];
+  if (!points || points.length === 0) return;
+  
+  // Remove any existing reconstruction
+  if (reconstructionMesh) {
+    reconstructionScene.remove(reconstructionMesh);
+    reconstructionMesh.geometry.dispose();
+    reconstructionMesh.material.dispose();
+  }
+  
+  // Create geometry for the reconstruction
+  const geometry = new THREE.BufferGeometry();
+  const positions = [];
+  const colors = [];
+  
+  // Convert 2D slice points to 3D points at the same Z-level
+  points.forEach(point => {
+    positions.push(point.x - canvasWidth/2);
+    positions.push(canvasHeight/2 - point.y);
+    positions.push(0); // All points at Z=0
+    
+    colors.push(point.brightness, point.brightness, point.brightness);
+  });
+  
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  
+  // Create material and mesh
+  const material = new THREE.PointsMaterial({
+    size: 3,
+    vertexColors: true,
+    sizeAttenuation: true,
+  });
+  
+  reconstructionMesh = new THREE.Points(geometry, material);
+  reconstructionScene.add(reconstructionMesh);
+  
+  // Center the reconstruction in view
+  reconstructionMesh.position.set(0, 0, 0);
+  
+  // Show reconstruction panel
+  reconstructionPanel.style.display = 'block';
+  
+  // Reset rotation speed to default
+  rotationSpeedSlider.value = 1.0;
+  speedValue.textContent = '1.0';
+  rotationSpeed = 1.0;
+  
+  saveLayout();
+}
+
+function updateRotationSpeed() {
+  rotationSpeed = parseFloat(rotationSpeedSlider.value);
+  speedValue.textContent = rotationSpeed.toFixed(1);
+  saveLayout();
+}
+
+function resetReconstructionView() {
+  if (reconstructionMesh) {
+    reconstructionMesh.rotation.set(0, 0, 0);
+  }
+}
+
+function closeReconstruction() {
+  reconstructionPanel.style.display = 'none';
+  saveLayout();
+}
+
+// New functions for 4D temporal reconstruction
+let temporalMesh = null;
+
+function createTemporalReconstruction(zKey) {
+  const points = layers[zKey];
+  if (!points || points.length === 0) return;
+  
+  // Initialize temporal renderer if not already done
+  if (!temporalRenderer) {
+    initTemporalRenderer();
+  }
+  
+  // Remove any existing temporal mesh
+  if (temporalMesh) {
+    temporalScene.remove(temporalMesh);
+    temporalMesh.geometry.dispose();
+    temporalMesh.material.dispose();
+    temporalMesh = null;
+  }
+  
+  // Create geometry for the temporal reconstruction
+  const geometry = new THREE.BufferGeometry();
+  const positions = [];
+  const colors = [];
+  
+  // Convert 2D slice points to 3D points at the same Z-level
+  points.forEach(point => {
+    positions.push(point.x - canvasWidth/2);
+    positions.push(canvasHeight/2 - point.y);
+    positions.push(0); // All points at Z=0
+    
+    colors.push(point.brightness, point.brightness, point.brightness);
+  });
+  
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  
+  // Create material and mesh
+  const material = new THREE.PointsMaterial({
+    size: 3,
+    vertexColors: true,
+    sizeAttenuation: true,
+  });
+  
+  temporalMesh = new THREE.Points(geometry, material);
+  temporalScene.add(temporalMesh);
+  
+  // Center the reconstruction in view
+  temporalMesh.position.set(0, 0, 0);
+  
+  // Show temporal reconstruction UI
+  temporalReconstructionUI.style.display = 'block';
+  
+  // Reset rotation speed to default
+  temporalRotationSpeedSlider.value = 1.0;
+  temporalSpeedValue.textContent = '1.0';
+  temporalRotationSpeed = 1.0;
+  
+  // Enable rotation by default
+  isTemporalRotating = true;
+  toggleRotationBtn.textContent = 'Pause Rotation';
+  
+  saveLayout();
+}
+
+function updateTemporalRotationSpeed() {
+  temporalRotationSpeed = parseFloat(temporalRotationSpeedSlider.value);
+  temporalSpeedValue.textContent = temporalRotationSpeed.toFixed(1);
+  saveLayout();
+}
+
+function toggleTemporalRotation() {
+  isTemporalRotating = !isTemporalRotating;
+  toggleRotationBtn.textContent = isTemporalRotating ? 'Pause Rotation' : 'Start Rotation';
+  saveLayout();
+}
+
+function resetTemporalView() {
+  if (temporalControls) {
+    temporalControls.reset();
+  }
+  if (temporalMesh) {
+    temporalMesh.rotation.set(0, 0, 0);
+  }
+}
+
+function saveTemporalAsPNG() {
+  if (!temporalRenderer) return;
+  
+  // Create a temporary canvas to capture the render
+  const canvas = document.createElement('canvas');
+  canvas.width = temporalCanvasContainer.clientWidth;
+  canvas.height = temporalCanvasContainer.clientHeight;
+  const ctx = canvas.getContext('2d');
+  
+  // Draw the Three.js canvas to the temporary canvas
+  ctx.drawImage(temporalRenderer.domElement, 0, 0);
+  
+  // Convert to data URL and trigger download
+  const dataUrl = canvas.toDataURL('image/png');
+  const a = document.createElement('a');
+  a.href = dataUrl;
+  a.download = `temporal_reconstruction_z_${currentSliceZ}.png`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+function closeTemporalReconstruction() {
+  temporalReconstructionUI.style.display = 'none';
+  saveLayout();
+}
+
+// Analysis functions
+function analyzeAllSlices() {
+  const sortedKeys = Object.keys(layers).sort((a, b) => b - a);
+  console.log("=== Analysis of All Slices ===");
+  
+  sortedKeys.forEach(zKey => {
+    const points = layers[zKey];
+    const analysis = analyzeSliceData(zKey, points);
+    console.log(`Z: ${zKey}, Points: ${analysis.points}, Width: ${analysis.width}, Height: ${analysis.height}, Symmetry: ${analysis.symmetry}`);
+  });
+  
+  alert("Analysis complete. Check console for details.");
+}
+
+function analyzeCurrentSlice() {
+  analyzeSlice(currentSliceZ);
+}
+
+function analyzeSlice(zKey) {
+  const points = layers[zKey];
+  if (!points || points.length === 0) return;
+  
+  const analysis = analyzeSliceData(zKey, points);
+  
+  // Update analysis panel
+  document.getElementById('analysis-z').textContent = zKey;
+  document.getElementById('analysis-width').textContent = analysis.width + ' px';
+  document.getElementById('analysis-height').textContent = analysis.height + ' px';
+  document.getElementById('analysis-points').textContent = analysis.points;
+  document.getElementById('analysis-density').textContent = analysis.density.toFixed(2) + ' pts/px²';
+  document.getElementById('analysis-hgap').textContent = analysis.avgHGap.toFixed(2) + ' px';
+  document.getElementById('analysis-vgap').textContent = analysis.avgVGap.toFixed(2) + ' px';
+  document.getElementById('analysis-symmetry').textContent = analysis.symmetry.toFixed(2);
+  
+  // Show analysis panel
+  analysisPanel.style.display = 'block';
+}
+
+function analyzeSliceData(zKey, points) {
+  if (points.length === 0) {
+    return {
+      z: zKey,
+      points: 0,
+      width: 0,
+      height: 0,
+      density: 0,
+      avgHGap: 0,
+      avgVGap: 0,
+      symmetry: 0
+    };
+  }
+  
+  // Calculate bounding box
+  let minX = Infinity, maxX = -Infinity;
+  let minY = Infinity, maxY = -Infinity;
+  
+  points.forEach(point => {
+    if (point.x < minX) minX = point.x;
+    if (point.x > maxX) maxX = point.x;
+    if (point.y < minY) minY = point.y;
+    if (point.y > maxY) maxY = point.y;
+  });
+  
+  const width = maxX - minX;
+  const height = maxY - minY;
+  const area = width * height;
+  const density = points.length / (area || 1);
+  
+  // Calculate average gaps
+  const sortedX = points.map(p => p.x).sort((a, b) => a - b);
+  const sortedY = points.map(p => p.y).sort((a, b) => a - b);
+  
+  let totalHGap = 0;
+  for (let i = 1; i < sortedX.length; i++) {
+    totalHGap += sortedX[i] - sortedX[i-1];
+  }
+  const avgHGap = sortedX.length > 1 ? totalHGap / (sortedX.length - 1) : 0;
+  
+  let totalVGap = 0;
+  for (let i = 1; i < sortedY.length; i++) {
+    totalVGap += sortedY[i] - sortedY[i-1];
+  }
+  const avgVGap = sortedY.length > 1 ? totalVGap / (sortedY.length - 1) : 0;
+  
+  // Calculate symmetry
+  const symmetry = calculateSymmetryScore(points);
+  
+  return {
+    z: zKey,
+    points: points.length,
+    width: Math.round(width),
+    height: Math.round(height),
+    density: density,
+    avgHGap: avgHGap,
+    avgVGap: avgVGap,
+    symmetry: symmetry
+  };
+}
+
+// Correction functions
+function openCorrectionPanel(zKey) {
+  correctionZSpan.textContent = zKey;
+  correctionPanel.style.display = 'block';
+}
+
+function prepareCorrection(direction) {
+  // This would prepare the correction but not apply it yet
+  alert(`Preparing to correct ${direction} for Z-Level ${correctionZSpan.textContent}`);
+}
+
+function updateCorrectionAmount() {
+  const amount = parseInt(correctionAmountSlider.value, 10);
+  correctionAmountValue.textContent = amount;
+}
+
+function applyCorrection() {
+  const zKey = parseInt(correctionZSpan.textContent, 10);
+  const amount = parseInt(correctionAmountSlider.value, 10);
+  const points = layers[zKey];
+  
+  if (!points || points.length === 0) return;
+  
+  // Apply correction to points
+  points.forEach(point => {
+    point.x += amount; // Simple correction - in a real implementation, this would be more sophisticated
+  });
+  
+  // Update the layers table
+  generateSlices();
+  
+  alert(`Applied correction of ${amount}px to Z-Level ${zKey}`);
+  correctionPanel.style.display = 'none';
+}
+
+// Tracing functions
+function enableTracing() {
+  tracingPanel.style.display = 'block';
+}
+
+function updateTracingSpeed() {
+  const speed = parseFloat(tracingSpeedSlider.value);
+  tracingSpeedValue.textContent = speed.toFixed(1);
+}
+
+function startTracing() {
+  isTracing = true;
+  startTracingBtn.disabled = true;
+  stopTracingBtn.disabled = false;
+  
+  const sortedKeys = Object.keys(layers).sort((a, b) => b - a);
+  if (sortedKeys.length < 2) return;
+  
+  // Initialize tracing data
+  tracingData = {
+    currentIndex: 0,
+    totalSlices: sortedKeys.length,
+    changes: []
+  };
+  
+  // Start tracing animation
+  animateTracing();
+}
+
+function stopTracing() {
+  isTracing = false;
+  startTracingBtn.disabled = false;
+  stopTracingBtn.disabled = true;
+}
+
+function animateTracing() {
+  if (!isTracing) return;
+  
+  const sortedKeys = Object.keys(layers).sort((a, b) => b - a);
+  if (tracingData.currentIndex >= sortedKeys.length - 1) {
+    stopTracing();
+    return;
+  }
+  
+  const currentZ = sortedKeys[tracingData.currentIndex];
+  const nextZ = sortedKeys[tracingData.currentIndex + 1];
+  
+  tracingFromSpan.textContent = currentZ;
+  tracingToSpan.textContent = nextZ;
+  
+  // Compare slices and calculate changes
+  const currentPoints = layers[currentZ];
+  const nextPoints = layers[nextZ];
+  
+  const changes = compareSlices(currentPoints, nextPoints);
+  tracingData.changes.push(changes);
+  
+  // Update tracing stats
+  tracingNewSpan.textContent = changes.newPoints;
+  tracingDisappearedSpan.textContent = changes.disappearedPoints;
+  tracingMovementSpan.textContent = changes.avgMovement.toFixed(2);
+  
+  // Move to next slice
+  tracingData.currentIndex++;
+  
+  // Continue animation
+  setTimeout(animateTracing, 1000 / animationSpeed);
+}
+
+function compareSlices(currentPoints, nextPoints) {
+  // Simple comparison - in a real implementation, this would use more advanced algorithms
+  const currentSet = new Set(currentPoints.map(p => `${p.x},${p.y}`));
+  const nextSet = new Set(nextPoints.map(p => `${p.x},${p.y}`));
+  
+  let newPoints = 0;
+  let disappearedPoints = 0;
+  let totalMovement = 0;
+  let movedPoints = 0;
+  
+  // Check for new points
+  nextPoints.forEach(p => {
+    const key = `${p.x},${p.y}`;
+    if (!currentSet.has(key)) newPoints++;
+  });
+  
+  // Check for disappeared points
+  currentPoints.forEach(p => {
+    const key = `${p.x},${p.y}`;
+    if (!nextSet.has(key)) disappearedPoints++;
+  });
+  
+  // For a real implementation, we would need point tracking between frames
+  // This is a simplified version
+  
+  return {
+    newPoints: newPoints,
+    disappearedPoints: disappearedPoints,
+    avgMovement: movedPoints > 0 ? totalMovement / movedPoints : 0
+  };
+}
+
+// Slice animation functions
+function updateAnimationSpeed() {
+  animationSpeed = parseFloat(animationSpeedSlider.value);
+  animationSpeedValue.textContent = animationSpeed.toFixed(1);
+  
+  // Restart animation with new speed if it's running
+  if (animationInterval) {
+    stopAnimation();
+    startAnimation();
+  }
+  
+  saveLayout();
+}
+
+function startAnimation() {
+  if (animationInterval) {
+    stopAnimation();
+  }
+  
+  startAnimationBtn.disabled = true;
+  stopAnimationBtn.disabled = false;
+  
+  // Calculate interval based on animation speed (faster speed = shorter interval)
+  const interval = 1000 / animationSpeed;
+  
+  animationInterval = setInterval(() => {
+    currentAnimationSliceIndex++;
+    const sortedKeys = Object.keys(layers).sort((a, b) => b - a);
+    
+    if (currentAnimationSliceIndex >= sortedKeys.length) {
+      currentAnimationSliceIndex = 0;
+    }
+    
+    showSliceAtIndex(currentAnimationSliceIndex);
+  }, interval);
+}
+
+function stopAnimation() {
+  if (animationInterval) {
+    clearInterval(animationInterval);
+    animationInterval = null;
+  }
+  
+  startAnimationBtn.disabled = false;
+  stopAnimationBtn.disabled = true;
+}
+
+function showPreviousSlice() {
+  const sortedKeys = Object.keys(layers).sort((a, b) => b - a);
+  currentAnimationSliceIndex--;
+  
+  if (currentAnimationSliceIndex < 0) {
+    currentAnimationSliceIndex = sortedKeys.length - 1;
+  }
+  
+  showSliceAtIndex(currentAnimationSliceIndex);
+}
+
+function showNextSlice() {
+  const sortedKeys = Object.keys(layers).sort((a, b) => b - a);
+  currentAnimationSliceIndex++;
+  
+  if (currentAnimationSliceIndex >= sortedKeys.length) {
+    currentAnimationSliceIndex = 0;
+  }
+  
+  showSliceAtIndex(currentAnimationSliceIndex);
+}
+
+function showSliceAtIndex(index) {
+  const sortedKeys = Object.keys(layers).sort((a, b) => b - a);
+  
+  if (sortedKeys.length === 0) return;
+  
+  const zKey = sortedKeys[index];
+  const points = layers[zKey];
+  
+  // Set up canvas for animation
+  animationCanvas.width = canvasWidth;
+  animationCanvas.height = canvasHeight;
+  const ctx = animationCanvas.getContext('2d');
+  
+  // Clear canvas
+  ctx.fillStyle = 'black';
+  ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+  
+  // Draw points
+  ctx.fillStyle = 'white';
+  points.forEach(point => {
+    ctx.fillRect(point.x, point.y, 2, 2);
+  });
+  
+  // Update panel title with current slice info
+  animationPanel.querySelector('h4').textContent = `Slice Animation (Z: ${zKey}, ${index+1}/${sortedKeys.length})`;
+}
+
+// Draggable panel functions
+function startDrag(e) {
+  if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT' || e.target.tagName === 'LABEL') {
+    return; // Don't drag if interacting with controls
+  }
+  
+  isDragging = true;
+  const rect = animationPanel.getBoundingClientRect();
+  dragOffsetX = e.clientX - rect.left;
+  dragOffsetY = e.clientY - rect.top;
+  animationPanel.style.opacity = '0.8';
+}
+
+function drag(e) {
+  if (!isDragging) return;
+  
+  e.preventDefault();
+  
+  const x = e.clientX - dragOffsetX;
+  const y = e.clientY - dragOffsetY;
+  
+  // Keep panel within viewport bounds
+  const maxX = window.innerWidth - animationPanel.offsetWidth;
+  const maxY = window.innerHeight - animationPanel.offsetHeight;
+  
+  animationPanel.style.left = `${Math.max(0, Math.min(x, maxX))}px`;
+  animationPanel.style.top = `${Math.max(0, Math.min(y, maxY))}px`;
+  animationPanel.style.right = 'auto'; // Reset right positioning
+}
+
+function endDrag() {
+  isDragging = false;
+  animationPanel.style.opacity = '1';
+  saveLayout();
+}
+
+// Layout management functions
+function saveLayout() {
+  const layout = {
+    imageData: imgOriginal ? imgOriginal.src : null,
+    shiftValue: shiftRange.value,
+    layersVisible: layersSection.style.display !== 'none',
+    slicePreviewVisible: slicePreview.style.display !== 'none',
+    reconstructionVisible: reconstructionPanel.style.display !== 'none',
+    temporalVisible: temporalReconstructionUI.style.display !== 'none',
+    animationVisible: animationPanel.style.display !== 'none',
+    analysisVisible: analysisPanel.style.display !== 'none',
+    correctionVisible: correctionPanel.style.display !== 'none',
+    tracingVisible: tracingPanel.style.display !== 'none',
+    animationPanelPosition: {
+      left: animationPanel.style.left,
+      top: animationPanel.style.top,
+      right: animationPanel.style.right
+    },
+    currentSliceZ: currentSliceZ,
+    rotationSpeed: rotationSpeed,
+    temporalRotationSpeed: temporalRotationSpeed,
+    animationSpeed: animationSpeed,
+    isTemporalRotating: isTemporalRotating,
+    isTracing: isTracing
+  };
+  
+  localStorage.setItem('msdfLayout', JSON.stringify(layout));
+  console.log('Layout saved successfully');
+}
+
+function loadLayout() {
+  const layoutStr = localStorage.getItem('msdfLayout');
+  if (!layoutStr) {
+    alert('No saved layout found!');
+    return;
+  }
+  
+  try {
+    const layout = JSON.parse(layoutStr);
+    
+    // Load image if available
+    if (layout.imageData) {
+      loadImage(layout.imageData).then(() => {
+        // Set shift value
+        shiftRange.value = layout.shiftValue;
+        shiftVal.textContent = layout.shiftValue;
+        
+        // Generate 3D pattern
+        generate3DPattern(parseInt(layout.shiftValue));
+        
+        // Restore UI visibility states after a delay to allow generation to complete
+        setTimeout(() => {
+          layersSection.style.display = layout.layersVisible ? 'block' : 'none';
+          slicePreview.style.display = layout.slicePreviewVisible ? 'block' : 'none';
+          reconstructionPanel.style.display = layout.reconstructionVisible ? 'block' : 'none';
+          temporalReconstructionUI.style.display = layout.temporalVisible ? 'block' : 'none';
+          animationPanel.style.display = layout.animationVisible ? 'block' : 'none';
+          analysisPanel.style.display = layout.analysisVisible ? 'block' : 'none';
+          correctionPanel.style.display = layout.correctionVisible ? 'block' : 'none';
+          tracingPanel.style.display = layout.tracingVisible ? 'block' : 'none';
+          
+          // Restore animation panel position
+          if (layout.animationPanelPosition) {
+            animationPanel.style.left = layout.animationPanelPosition.left;
+            animationPanel.style.top = layout.animationPanelPosition.top;
+            animationPanel.style.right = layout.animationPanelPosition.right;
+          }
+          
+          // Restore rotation speeds
+          rotationSpeedSlider.value = layout.rotationSpeed || 1.0;
+          speedValue.textContent = (layout.rotationSpeed || 1.0).toFixed(1);
+          rotationSpeed = layout.rotationSpeed || 1.0;
+          
+          temporalRotationSpeedSlider.value = layout.temporalRotationSpeed || 1.0;
+          temporalSpeedValue.textContent = (layout.temporalRotationSpeed || 1.0).toFixed(1);
+          temporalRotationSpeed = layout.temporalRotationSpeed || 1.0;
+          
+          animationSpeedSlider.value = layout.animationSpeed || 1.0;
+          animationSpeedValue.textContent = (layout.animationSpeed || 1.0).toFixed(1);
+          animationSpeed = layout.animationSpeed || 1.0;
+          
+          // Restore temporal rotation state
+          isTemporalRotating = layout.isTemporalRotating !== undefined ? layout.isTemporalRotating : true;
+          toggleRotationBtn.textContent = isTemporalRotating ? 'Pause Rotation' : 'Start Rotation';
+          
+          // Restore tracing state
+          isTracing = layout.isTracing || false;
+          startTracingBtn.disabled = isTracing;
+          stopTracingBtn.disabled = !isTracing;
+          
+          // Restore current slice if needed
+          if (layout.currentSliceZ && layout.slicePreviewVisible) {
+            currentSliceZ = layout.currentSliceZ;
+            previewSlice(layout.currentSliceZ);
+          }
+          
+          alert('Layout loaded successfully!');
+        }, 1000);
+      });
+    } else {
+      // Just restore UI visibility states without image
+      layersSection.style.display = layout.layersVisible ? 'block' : 'none';
+      slicePreview.style.display = layout.slicePreviewVisible ? 'block' : 'none';
+      reconstructionPanel.style.display = layout.reconstructionVisible ? 'block' : 'none';
+      temporalReconstructionUI.style.display = layout.temporalVisible ? 'block' : 'none';
+      animationPanel.style.display = layout.animationVisible ? 'block' : 'none';
+      analysisPanel.style.display = layout.analysisVisible ? 'block' : 'none';
+      correctionPanel.style.display = layout.correctionVisible ? 'block' : 'none';
+      tracingPanel.style.display = layout.tracingVisible ? 'block' : 'none';
+      
+      // Restore animation panel position
+      if (layout.animationPanelPosition) {
+        animationPanel.style.left = layout.animationPanelPosition.left;
+        animationPanel.style.top = layout.animationPanelPosition.top;
+        animationPanel.style.right = layout.animationPanelPosition.right;
+      }
+      
+      alert('Layout loaded (no image data found).');
+    }
+  } catch (e) {
+    console.error('Error loading layout:', e);
+    alert('Error loading layout: ' + e.message);
+  }
+}
+
+function resetLayout() {
+  if (confirm('Are you sure you want to reset the layout? This will clear all current work.')) {
+    localStorage.removeItem('msdfLayout');
+    location.reload();
+  }
+}
+
+</script>
+
+</body>
+</html>

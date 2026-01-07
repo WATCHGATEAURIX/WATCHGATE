@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Biomechanical Human Body from Pixel Cubes</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #0c0f1d, #1a1a2e);
+            color: #e6e6e6;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        header {
+            background: rgba(10, 15, 30, 0.85);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+            position: relative;
+            z-index: 10;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .logo-icon {
+            font-size: 28px;
+            color: #4cc9f0;
+        }
+        
+        .logo-text {
+            font-size: 24px;
+            font-weight: 700;
+            background: linear-gradient(90deg, #4cc9f0, #4361ee);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .header-info {
+            background: rgba(67, 97, 238, 0.2);
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            border: 1px solid rgba(76, 201, 240, 0.3);
+        }
+        
+        .container {
+            display: flex;
+            max-width: 1800px;
+            margin: 20px auto;
+            padding: 20px;
+            gap: 20px;
+        }
+        
+        .control-panel {
+            flex: 1;
+            max-width: 350px;
+            background: rgba(20, 25, 46, 0.8);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(76, 201, 240, 0.2);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .panel-section {
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(76, 201, 240, 0.1);
+        }
+        
+        .panel-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #4cc9f0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .control-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 14px;
+            color: #a9b7c6;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(100, 100, 130, 0.3);
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #4361ee;
+            cursor: pointer;
+            box-shadow: 0 0 8px rgba(67, 97, 238, 0.7);
+        }
+        
+        button {
+            width: 100%;
+            padding: 12px 15px;
+            border-radius: 8px;
+            border: none;
+            background: rgba(67, 97, 238, 0.2);
+            color: #e6e6e6;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 10px;
+            border: 1px solid rgba(76, 201, 240, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        button:hover {
+            background: rgba(67, 97, 238, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(67, 97, 238, 0.3);
+        }
+        
+        .visualization-area {
+            flex: 3;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .canvas-container {
+            position: relative;
+            height: 70vh;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            background: rgba(8, 10, 20, 0.7);
+            border: 1px solid rgba(76, 201, 240, 0.2);
+        }
+        
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            padding: 15px;
+            background: rgba(20, 25, 46, 0.8);
+            border-radius: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+        
+        .color-box {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+        }
+        
+        .structure-color { background-color: #4cc9f0; }
+        .motion-color { background-color: #ff6b6b; }
+        .flexibility-color { background-color: #51cf66; }
+        .instruction-color { background-color: #f0db4f; }
+        .connection-color { background-color: #b19cd9; }
+        
+        .hierarchy {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+        
+        .hierarchy-item {
+            text-align: center;
+            padding: 15px;
+            background: rgba(20, 25, 46, 0.6);
+            border-radius: 8px;
+            flex: 1;
+            margin: 0 5px;
+        }
+        
+        .hierarchy-icon {
+            font-size: 24px;
+            margin-bottom: 10px;
+            color: #4cc9f0;
+        }
+        
+        .hierarchy-title {
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .hierarchy-description {
+            font-size: 12px;
+            color: #a9b7c6;
+        }
+        
+        .body-diagram {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        
+        .body-segment {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0 10px;
+            padding: 10px;
+            border-radius: 8px;
+            background: rgba(20, 25, 46, 0.6);
+            min-width: 100px;
+        }
+        
+        .segment-icon {
+            font-size: 32px;
+            margin-bottom: 8px;
+            color: #4cc9f0;
+        }
+        
+        .segment-label {
+            font-size: 14px;
+            font-weight: bold;
+        }
+        
+        .segment-cubes {
+            font-size: 12px;
+            color: #a9b7c6;
+            margin-top: 5px;
+        }
+        
+        .notification {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(20, 25, 46, 0.95);
+            color: #4cc9f0;
+            padding: 15px 25px;
+            border-radius: 8px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+            border-left: 4px solid #4361ee;
+            transform: translateX(120%);
+            transition: transform 0.4s ease;
+            z-index: 1000;
+            max-width: 400px;
+        }
+        
+        .notification.show {
+            transform: translateX(0);
+        }
+        
+        .phase-timeline {
+            background: rgba(20, 25, 46, 0.8);
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .timeline-title {
+            font-size: 18px;
+            color: #4cc9f0;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .timeline {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .phase {
+            background: rgba(67, 97, 238, 0.2);
+            border-radius: 8px;
+            padding: 15px;
+            flex: 1;
+            min-width: 200px;
+            border: 1px solid rgba(76, 201, 240, 0.3);
+            transition: all 0.3s ease;
+        }
+        
+        .phase:hover {
+            transform: translateY(-5px);
+            background: rgba(67, 97, 238, 0.3);
+        }
+        
+        .phase-title {
+            color: #4cc9f0;
+            font-weight: 600;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .phase-description {
+            font-size: 13px;
+            color: #a9b7c6;
+            line-height: 1.5;
+        }
+        
+        .progress-bar {
+            height: 6px;
+            background: rgba(100, 100, 130, 0.3);
+            border-radius: 3px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+        
+        .progress {
+            height: 100%;
+            background: linear-gradient(90deg, #4cc9f0, #4361ee);
+            border-radius: 3px;
+        }
+        
+        .current-phase {
+            background: rgba(76, 201, 240, 0.2);
+            border-color: #4cc9f0;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo">
+            <span class="logo-icon"><i class="fas fa-cube"></i></span>
+            <div class="logo-text">BIOMECHANICAL HUMAN BODY SYSTEM</div>
+        </div>
+        <div class="header-info">
+            <i class="fas fa-sync-alt"></i> Intertwined Pixel Cubes | Universal Instruction Set
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="control-panel">
+            <div class="panel-section">
+                <div class="panel-title">
+                    <i class="fas fa-sliders-h"></i> SYSTEM CONTROLS
+                </div>
+                <div class="control-group">
+                    <button id="generateBody">
+                        <i class="fas fa-user"></i> Generate Biomechanical Body
+                    </button>
+                    <button id="activateSystem">
+                        <i class="fas fa-bolt"></i> Activate Instruction System
+                    </button>
+                    <button id="startMotion">
+                        <i class="fas fa-play"></i> Start Biomechanical Motion
+                    </button>
+                    <button id="resetMotion">
+                        <i class="fas fa-redo"></i> Reset Simulation
+                    </button>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <div class="panel-title">
+                    <i class="fas fa-cogs"></i> BODY PARAMETERS
+                </div>
+                <div class="control-group">
+                    <label for="bodyScale">Body Scale: <span id="scaleValue">100%</span></label>
+                    <input type="range" id="bodyScale" min="50" max="150" value="100">
+                </div>
+                <div class="control-group">
+                    <label for="motionIntensity">Motion Intensity: <span id="intensityValue">50%</span></label>
+                    <input type="range" id="motionIntensity" min="0" max="100" value="50">
+                </div>
+                <div class="control-group">
+                    <label for="flexibility">Flexibility Factor</label>
+                    <input type="range" id="flexibility" min="1" max="10" value="7">
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <div class="panel-title">
+                    <i class="fas fa-project-diagram"></i> BODY SEGMENTS
+                </div>
+                <div class="body-diagram">
+                    <div class="body-segment">
+                        <div class="segment-icon"><i class="fas fa-brain"></i></div>
+                        <div class="segment-label">Head</div>
+                        <div class="segment-cubes">2 cubes</div>
+                    </div>
+                    <div class="body-segment">
+                        <div class="segment-icon"><i class="fas fa-vest"></i></div>
+                        <div class="segment-label">Torso</div>
+                        <div class="segment-cubes">5 cubes</div>
+                    </div>
+                    <div class="body-segment">
+                        <div class="segment-icon"><i class="fas fa-hand"></i></div>
+                        <div class="segment-label">Arms</div>
+                        <div class="segment-cubes">8 cubes</div>
+                    </div>
+                    <div class="body-segment">
+                        <div class="segment-icon"><i class="fas fa-walking"></i></div>
+                        <div class="segment-label">Legs</div>
+                        <div class="segment-cubes">10 cubes</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <div class="panel-title">
+                    <i class="fas fa-network-wired"></i> SYSTEM HIERARCHY
+                </div>
+                <div class="hierarchy">
+                    <div class="hierarchy-item">
+                        <div class="hierarchy-icon"><i class="fas fa-cube"></i></div>
+                        <div class="hierarchy-title">Pixel Cubes</div>
+                        <div class="hierarchy-description">Body segments with universal instructions</div>
+                    </div>
+                    <div class="hierarchy-item">
+                        <div class="hierarchy-icon"><i class="fas fa-globe"></i></div>
+                        <div class="hierarchy-title">Pixel Spheres</div>
+                        <div class="hierarchy-description">Functional units within each cube</div>
+                    </div>
+                    <div class="hierarchy-item">
+                        <div class="hierarchy-icon"><i class="fas fa-cloud"></i></div>
+                        <div class="hierarchy-title">Pixel Clouds</div>
+                        <div class="hierarchy-description">Micro-instruction clusters</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="visualization-area">
+            <div class="canvas-container">
+                <canvas id="renderCanvas"></canvas>
+            </div>
+            
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="color-box structure-color"></div>
+                    <div>Structure Cubes (Skeletal Integrity)</div>
+                </div>
+                <div class="legend-item">
+                    <div class="color-box motion-color"></div>
+                    <div>Motion Cubes (Muscle Simulation)</div>
+                </div>
+                <div class="legend-item">
+                    <div class="color-box flexibility-color"></div>
+                    <div>Flexibility Cubes (Joint Movement)</div>
+                </div>
+                <div class="legend-item">
+                    <div class="color-box instruction-color"></div>
+                    <div>Instruction Spheres (Neural Control)</div>
+                </div>
+                <div class="legend-item">
+                    <div class="color-box connection-color"></div>
+                    <div>Connections (Nervous System)</div>
+                </div>
+            </div>
+            
+            <div class="phase-timeline">
+                <div class="timeline-title">
+                    <i class="fas fa-sitemap"></i> BIOMECHANICAL STRUCTURE HIERARCHY
+                </div>
+                <div class="timeline">
+                    <div class="phase current-phase">
+                        <div class="phase-title"><i class="fas fa-cube"></i> Pixel Cubes</div>
+                        <div class="phase-description">Macro structure with universal instruction set</div>
+                        <div class="progress-bar">
+                            <div class="progress" style="width: 100%"></div>
+                        </div>
+                    </div>
+                    <div class="phase current-phase">
+                        <div class="phase-title"><i class="fas fa-globe"></i> Pixel Spheres</div>
+                        <div class="phase-description">Functional units within each cube</div>
+                        <div class="progress-bar">
+                            <div class="progress" style="width: 90%"></div>
+                        </div>
+                    </div>
+                    <div class="phase current-phase">
+                        <div class="phase-title"><i class="fas fa-cloud"></i> Pixel Clouds</div>
+                        <div class="phase-description">Micro-instruction clusters</div>
+                        <div class="progress-bar">
+                            <div class="progress" style="width: 85%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="notification" id="notification">
+        System initialized. Generate a Biomechanical Body to begin.
+    </div>
+
+    <script>
+        // Main Three.js variables
+        let scene, camera, renderer, controls;
+        let bodyGroup = new THREE.Group();
+        let bodyCubes = [];
+        let instructionSpheres = [];
+        let pixelClouds = [];
+        let connections = [];
+        let isSystemActive = false;
+        let isMotionActive = false;
+        let animationStartTime = 0;
+        let bodyScale = 1.0;
+        let motionIntensity = 0.5;
+        
+        // Body segment definitions
+        const bodySegments = [
+            // Head
+            { type: 'head', position: [0, 75, 0], scale: [30, 30, 30], color: 0x4cc9f0, spheres: 2 },
+            
+            // Torso
+            { type: 'torso', position: [0, 40, 0], scale: [40, 50, 20], color: 0x4cc9f0, spheres: 3 },
+            { type: 'torso', position: [0, 10, 0], scale: [35, 30, 20], color: 0x4cc9f0, spheres: 2 },
+            
+            // Arms
+            { type: 'arm', position: [-30, 40, 0], scale: [15, 40, 15], color: 0xff6b6b, spheres: 2 },
+            { type: 'arm', position: [30, 40, 0], scale: [15, 40, 15], color: 0xff6b6b, spheres: 2 },
+            { type: 'forearm', position: [-50, 20, 0], scale: [12, 30, 12], color: 0xff6b6b, spheres: 2 },
+            { type: 'forearm', position: [50, 20, 0], scale: [12, 30, 12], color: 0xff6b6b, spheres: 2 },
+            
+            // Legs
+            { type: 'thigh', position: [-15, -20, 0], scale: [15, 40, 15], color: 0x51cf66, spheres: 3 },
+            { type: 'thigh', position: [15, -20, 0], scale: [15, 40, 15], color: 0x51cf66, spheres: 3 },
+            { type: 'calf', position: [-15, -60, 0], scale: [12, 35, 12], color: 0x51cf66, spheres: 2 },
+            { type: 'calf', position: [15, -60, 0], scale: [12, 35, 12], color: 0x51cf66, spheres: 2 }
+        ];
+
+        // Initialize the system
+        init();
+        
+        function init() {
+            // Initialize Three.js
+            initThreeJS();
+            
+            // Set up event listeners
+            setupEventListeners();
+            
+            // Show initial notification
+            showNotification("System initialized. Click 'Generate Biomechanical Body' to begin.");
+        }
+        
+        function initThreeJS() {
+            // Create scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x080a14);
+            
+            // Create camera
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 2000);
+            camera.position.set(0, 50, 200);
+            
+            // Create renderer
+            renderer = new THREE.WebGLRenderer({
+                canvas: document.getElementById('renderCanvas'),
+                antialias: true
+            });
+            renderer.setSize(document.querySelector('.canvas-container').offsetWidth, 
+                            document.querySelector('.canvas-container').offsetHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            
+            // Add lights
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0x4cc9f0, 0.8);
+            directionalLight.position.set(1, 1, 1);
+            scene.add(directionalLight);
+            
+            const backLight = new THREE.DirectionalLight(0x4361ee, 0.4);
+            backLight.position.set(-1, -1, -1);
+            scene.add(backLight);
+            
+            // Add controls
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.rotateSpeed = 0.5;
+            
+            // Add body group to scene
+            scene.add(bodyGroup);
+            
+            // Start animation loop
+            animate();
+        }
+        
+        function setupEventListeners() {
+            // Button events
+            document.getElementById('generateBody').addEventListener('click', generateBiomechanicalBody);
+            document.getElementById('activateSystem').addEventListener('click', activateInstructionSystem);
+            document.getElementById('startMotion').addEventListener('click', toggleMotion);
+            document.getElementById('resetMotion').addEventListener('click', resetMotion);
+            
+            // Slider events
+            document.getElementById('bodyScale').addEventListener('input', function() {
+                bodyScale = parseInt(this.value) / 100;
+                document.getElementById('scaleValue').textContent = this.value + '%';
+                updateBodyScale();
+            });
+            
+            document.getElementById('motionIntensity').addEventListener('input', function() {
+                motionIntensity = parseInt(this.value) / 100;
+                document.getElementById('intensityValue').textContent = this.value + '%';
+            });
+        }
+        
+        function generateBiomechanicalBody() {
+            // Clear previous body
+            while(bodyGroup.children.length > 0) { 
+                bodyGroup.remove(bodyGroup.children[0]); 
+            }
+            bodyCubes = [];
+            instructionSpheres = [];
+            pixelClouds = [];
+            connections = [];
+            
+            // Create body segments
+            bodySegments.forEach(segment => {
+                createBodySegment(segment);
+            });
+            
+            // Create connections between segments
+            createConnections();
+            
+            // Position the body
+            bodyGroup.position.y = -20;
+            
+            // Show notification
+            showNotification("Biomechanical body created from 25 interconnected pixel cubes.");
+        }
+        
+        function createBodySegment(segment) {
+            // Create the cube for body segment
+            const cubeGeometry = new THREE.BoxGeometry(...segment.scale);
+            const cubeMaterial = new THREE.MeshPhongMaterial({ 
+                color: segment.color,
+                transparent: true,
+                opacity: 0.6,
+                wireframe: false,
+                shininess: 80
+            });
+            const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+            cube.position.set(...segment.position);
+            bodyGroup.add(cube);
+            bodyCubes.push(cube);
+            
+            // Create instruction spheres inside the cube
+            for (let i = 0; i < segment.spheres; i++) {
+                const sphereRadius = segment.scale[0] * 0.2;
+                const sphereGeometry = new THREE.SphereGeometry(sphereRadius, 16, 16);
+                const sphereMaterial = new THREE.MeshStandardMaterial({ 
+                    color: 0xf0db4f,
+                    emissive: 0x333300,
+                    metalness: 0.3,
+                    roughness: 0.4
+                });
+                const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+                
+                // Position sphere inside the cube
+                const offsetX = (Math.random() - 0.5) * segment.scale[0] * 0.6;
+                const offsetY = (Math.random() - 0.5) * segment.scale[1] * 0.6;
+                const offsetZ = (Math.random() - 0.5) * segment.scale[2] * 0.6;
+                sphere.position.set(
+                    segment.position[0] + offsetX,
+                    segment.position[1] + offsetY,
+                    segment.position[2] + offsetZ
+                );
+                
+                bodyGroup.add(sphere);
+                instructionSpheres.push(sphere);
+                
+                // Create pixel clouds around the sphere
+                createPixelCloud(sphere, sphereRadius);
+            }
+        }
+        
+        function createPixelCloud(sphere, sphereRadius) {
+            const cloudSize = 50;
+            const cloudGeometry = new THREE.BufferGeometry();
+            const positions = [];
+            const colors = [];
+            
+            for (let i = 0; i < cloudSize; i++) {
+                // Position particles around the sphere
+                const phi = Math.acos(-1 + Math.random() * 2);
+                const theta = Math.random() * Math.PI * 2;
+                const r = Math.random() * sphereRadius * 1.5;
+                
+                const x = sphere.position.x + r * Math.sin(phi) * Math.cos(theta);
+                const y = sphere.position.y + r * Math.sin(phi) * Math.sin(theta);
+                const z = sphere.position.z + r * Math.cos(phi);
+                
+                positions.push(x, y, z);
+                
+                // Color based on instruction type
+                const color = new THREE.Color();
+                const hue = Math.random() * 0.2 + 0.1; // Yellow to orange
+                color.setHSL(hue, 0.9, 0.6);
+                colors.push(color.r, color.g, color.b);
+            }
+            
+            cloudGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+            cloudGeometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+            
+            const cloudMaterial = new THREE.PointsMaterial({
+                size: 1.5,
+                vertexColors: true,
+                sizeAttenuation: true
+            });
+            
+            const cloud = new THREE.Points(cloudGeometry, cloudMaterial);
+            bodyGroup.add(cloud);
+            pixelClouds.push(cloud);
+        }
+        
+        function createConnections() {
+            // Create connections between body segments
+            const connectionMaterial = new THREE.LineBasicMaterial({ 
+                color: 0xb19cd9,
+                transparent: true,
+                opacity: 0.6
+            });
+            
+            // Connect head to torso
+            createConnection(bodySegments[0].position, bodySegments[1].position, connectionMaterial);
+            
+            // Connect torso segments
+            createConnection(bodySegments[1].position, bodySegments[2].position, connectionMaterial);
+            
+            // Connect torso to arms
+            createConnection(bodySegments[1].position, bodySegments[3].position, connectionMaterial);
+            createConnection(bodySegments[1].position, bodySegments[4].position, connectionMaterial);
+            
+            // Connect arms to forearms
+            createConnection(bodySegments[3].position, bodySegments[5].position, connectionMaterial);
+            createConnection(bodySegments[4].position, bodySegments[6].position, connectionMaterial);
+            
+            // Connect torso to thighs
+            createConnection(bodySegments[2].position, bodySegments[7].position, connectionMaterial);
+            createConnection(bodySegments[2].position, bodySegments[8].position, connectionMaterial);
+            
+            // Connect thighs to calves
+            createConnection(bodySegments[7].position, bodySegments[9].position, connectionMaterial);
+            createConnection(bodySegments[8].position, bodySegments[10].position, connectionMaterial);
+        }
+        
+        function createConnection(start, end, material) {
+            const points = [];
+            points.push(new THREE.Vector3(...start));
+            points.push(new THREE.Vector3(...end));
+            
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            const line = new THREE.Line(geometry, material);
+            bodyGroup.add(line);
+            connections.push(line);
+        }
+        
+        function activateInstructionSystem() {
+            if (bodyCubes.length === 0) {
+                showNotification("Generate a body first!");
+                return;
+            }
+            
+            isSystemActive = true;
+            
+            // Visual feedback - activate spheres
+            instructionSpheres.forEach(sphere => {
+                sphere.material.emissive = new THREE.Color(0xffff00);
+                sphere.material.emissiveIntensity = 0.5;
+                sphere.material.needsUpdate = true;
+            });
+            
+            // Visual feedback - highlight connections
+            connections.forEach(conn => {
+                conn.material.color = new THREE.Color(0xffffff);
+                conn.material.opacity = 0.9;
+                conn.material.needsUpdate = true;
+            });
+            
+            showNotification("Instruction system activated. Biomechanical body ready for motion.");
+        }
+        
+        function toggleMotion() {
+            if (!isSystemActive) {
+                showNotification("Activate the instruction system first!");
+                return;
+            }
+            
+            isMotionActive = !isMotionActive;
+            document.getElementById('startMotion').innerHTML = isMotionActive ? 
+                '<i class="fas fa-pause"></i> Pause Motion' : 
+                '<i class="fas fa-play"></i> Start Motion';
+            animationStartTime = isMotionActive ? performance.now() : 0;
+            
+            if (isMotionActive) {
+                animateMotion();
+            }
+            
+            showNotification(isMotionActive ? "Biomechanical motion started." : "Motion paused.");
+        }
+        
+        function resetMotion() {
+            isMotionActive = false;
+            isSystemActive = false;
+            document.getElementById('startMotion').innerHTML = '<i class="fas fa-play"></i> Start Motion';
+            
+            // Reset visual state
+            instructionSpheres.forEach(sphere => {
+                sphere.material.emissive = new THREE.Color(0x333300);
+                sphere.material.emissiveIntensity = 1.0;
+                sphere.material.needsUpdate = true;
+            });
+            
+            connections.forEach(conn => {
+                conn.material.color = new THREE.Color(0xb19cd9);
+                conn.material.opacity = 0.6;
+                conn.material.needsUpdate = true;
+            });
+            
+            // Reset body position
+            bodyGroup.rotation.set(0, 0, 0);
+            bodyCubes.forEach(cube => {
+                cube.rotation.set(0, 0, 0);
+            });
+            
+            showNotification("System reset to initial state.");
+        }
+        
+        function updateBodyScale() {
+            bodyGroup.scale.set(bodyScale, bodyScale, bodyScale);
+        }
+        
+        function animateMotion() {
+            if (!isMotionActive) return;
+            
+            const now = performance.now();
+            const elapsed = (now - animationStartTime) / 1000;
+            
+            // Apply breathing-like motion to torso
+            bodyCubes[0].rotation.x = Math.sin(elapsed * 0.5) * 0.05 * motionIntensity;
+            bodyCubes[1].rotation.x = Math.sin(elapsed * 0.5) * 0.05 * motionIntensity;
+            
+            // Arm movements
+            bodyCubes[2].rotation.z = Math.sin(elapsed) * 0.5 * motionIntensity;
+            bodyCubes[3].rotation.z = Math.sin(elapsed + Math.PI) * 0.5 * motionIntensity;
+            bodyCubes[4].rotation.z = Math.sin(elapsed) * 0.7 * motionIntensity;
+            bodyCubes[5].rotation.z = Math.sin(elapsed + Math.PI) * 0.7 * motionIntensity;
+            
+            // Leg movements
+            bodyCubes[6].rotation.z = Math.sin(elapsed) * 0.4 * motionIntensity;
+            bodyCubes[7].rotation.z = Math.sin(elapsed + Math.PI) * 0.4 * motionIntensity;
+            bodyCubes[8].rotation.z = Math.sin(elapsed) * 0.6 * motionIntensity;
+            bodyCubes[9].rotation.z = Math.sin(elapsed + Math.PI) * 0.6 * motionIntensity;
+            
+            // Head movement
+            bodyCubes[0].rotation.y = Math.sin(elapsed * 0.3) * 0.2 * motionIntensity;
+            
+            // Continue animation
+            requestAnimationFrame(animateMotion);
+        }
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Rotate the entire body slowly
+            if (!isMotionActive) {
+                bodyGroup.rotation.y += 0.002;
+            }
+            
+            // Update controls
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        
+        function showNotification(message) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
